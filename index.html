@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alerta Vivo — Urban Risk Intelligence Platform</title>
+<meta name="description" content="Protótipo funcional da Urban Risk Intelligence Platform (Global Solution 2026.2 — CitizenTech): monitoramento de riscos urbanos com origem e nível de confiança de cada dado.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  if (window.tailwind) {
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'ui-monospace', 'monospace'] } } } };
+  }
+</script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  html, body { height: 100%; }
+  body { font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .phone { width: 390px; height: min(844px, calc(100vh - 84px)); border-radius: 46px; border: 10px solid #0f172a; box-shadow: 0 30px 60px -15px rgba(15,23,42,.45), inset 0 0 0 1px #334155; }
+  @media (max-width: 640px) {
+    .phone { width: 100vw; height: calc(100vh - 48px); border-radius: 0; border: 0; box-shadow: none; }
+    main.app-main { padding: 48px 0 0 0 !important; }
+    body.demo-hidden main.app-main { padding-top: 0 !important; }
+    body.demo-hidden .phone { height: 100vh; }
+  }
+  .thin-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+  .thin-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+  :focus-visible { outline: 3px solid #0ea5e9; outline-offset: 2px; border-radius: 6px; }
+  @keyframes slideDown { from { transform: translateY(-120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .push-in { animation: slideDown .35s cubic-bezier(.2,.8,.2,1); }
+  .sheet-in { animation: slideUp .3s cubic-bezier(.2,.8,.2,1); }
+  .fade-in { animation: fadeIn .25s ease-out; }
+  .gauge-arc { transition: stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1); }
+  .bar-fill { transition: width .8s cubic-bezier(.2,.8,.2,1); }
+  .blur-photo { background: linear-gradient(135deg,#64748b,#94a3b8 40%,#475569 70%,#1e3a8a); filter: blur(1.5px); }
+  .map-bg { background: #e8ecef; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900">
+<noscript><p style="padding:2rem">Este protótipo precisa de JavaScript habilitado.</p></noscript>
+
+<!-- ====================== BARRA DE MODO DEMONSTRAÇÃO ====================== -->
+<header id="demoBar" class="fixed top-0 inset-x-0 z-50 bg-slate-900 text-white shadow-lg">
+  <div class="flex items-center gap-3 px-3 h-12 overflow-x-auto no-scrollbar">
+    <div class="flex items-center gap-2 shrink-0 pr-2 border-r border-slate-700">
+      <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span></span>
+      <span class="text-[11px] font-bold tracking-widest uppercase">Modo Demonstração</span>
+    </div>
+    <nav id="demoNav" class="flex items-center gap-1 shrink-0" aria-label="Pular para tela"></nav>
+    <div class="ml-auto flex items-center gap-2 shrink-0 pl-2 border-l border-slate-700">
+      <button onclick="A.demoPush()" class="text-xs px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 flex items-center gap-1.5" title="Simula a chegada de um push no celular"><i data-lucide="bell-ring" class="w-3.5 h-3.5"></i>Push de teste</button>
+      <button onclick="A.demoNewReport()" class="text-xs px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 flex items-center gap-1.5" title="Outro morador envia relato para a fila"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i>Relato de outro morador</button>
+      <button onclick="A.reset()" class="text-xs px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 flex items-center gap-1.5"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>Resetar</button>
+      <button onclick="A.toggleDemo()" class="text-xs px-2.5 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 flex items-center gap-1.5" title="Atalho: tecla D"><i data-lucide="eye-off" class="w-3.5 h-3.5"></i>Ocultar (D)</button>
+    </div>
+  </div>
+</header>
+<button id="demoShow" onclick="A.toggleDemo()" class="hidden fixed top-2 right-2 z-50 bg-slate-900/80 text-white text-xs px-3 py-1.5 rounded-full shadow" aria-label="Mostrar barra de demonstração">Demo (D)</button>
+
+<!-- ====================== ÁREA PRINCIPAL ====================== -->
+<main class="app-main pt-16 pb-4 px-4 min-h-screen">
+  <!-- Visão do App do Cidadão -->
+  <section id="citizenWrap" class="flex justify-center items-start gap-8">
+    <aside id="sidePanel" class="hidden xl:block w-80 shrink-0 sticky top-16" aria-label="Informações da tela atual"></aside>
+    <div class="phone relative bg-white overflow-hidden flex flex-col shrink-0">
+      <div class="h-8 shrink-0 flex items-center justify-between px-6 text-[12px] font-semibold bg-white z-40 pointer-events-none" id="statusBar">
+        <span id="simClock">18:14</span>
+        <span class="flex items-center gap-1"><i data-lucide="signal" class="w-3.5 h-3.5"></i><i data-lucide="wifi" class="w-3.5 h-3.5"></i><i data-lucide="battery-medium" class="w-4 h-4"></i></span>
+      </div>
+      <div id="pushLayer" class="absolute top-9 inset-x-2 z-50"></div>
+      <div id="screen" class="flex-1 min-h-0 relative overflow-y-auto thin-scroll"></div>
+      <nav id="bottomNav" class="shrink-0 border-t border-slate-200 bg-white" aria-label="Navegação do aplicativo"></nav>
+      <div id="phoneToast" class="absolute bottom-24 inset-x-0 flex justify-center z-50 pointer-events-none"></div>
+    </div>
+    <aside id="legendPanel" class="hidden 2xl:block w-72 shrink-0 sticky top-16" aria-label="Legenda"></aside>
+  </section>
+
+  <!-- Console Operacional (T09) -->
+  <section id="consoleWrap" class="hidden max-w-[1400px] mx-auto"></section>
+</main>
+
+<div id="modal"></div>
+<div id="consoleToast" class="fixed top-16 right-4 z-[90] space-y-2"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   ALERTA VIVO — Urban Risk Intelligence Platform (protótipo funcional)
+   SPA em JavaScript Vanilla. Regras de negócio RN01–RN09 implementadas
+   nas funções calc(), kOf(), cOf(), MATRIX e nos fluxos do console.
+   ===================================================================== */
+
+/* ---------- Relógio simulado (cenário começa às 18:14) ---------- */
+let T0 = Date.now();
+const SIM_START = (18 * 60 + 14) * 60;
+const simSec = () => SIM_START + Math.floor((Date.now() - T0) / 1000);
+const simMin = () => Math.floor(simSec() / 60);
+const M = (h, m) => h * 60 + m;
+const hhmm = (m) => { m = ((Math.floor(m) % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+const rel = (m) => { const d = simMin() - m; if (d <= 0) return 'agora'; if (d < 60) return `há ${d} min`; const h = Math.floor(d / 60), r = d % 60; return `há ${h} h${r ? ' ' + r + ' min' : ''}`; };
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = (id) => document.getElementById(id);
+
+/* ---------- Catálogos ---------- */
+const RISK = {
+  'Baixo':    { hex: '#16a34a', ink: '#ffffff', badge: 'bg-green-100 text-green-900 ring-1 ring-green-600/40',   shape: 'circle',   ord: 1 },
+  'Moderado': { hex: '#eab308', ink: '#422006', badge: 'bg-yellow-100 text-yellow-900 ring-1 ring-yellow-600/50', shape: 'triangle', ord: 2 },
+  'Alto':     { hex: '#ea580c', ink: '#ffffff', badge: 'bg-orange-100 text-orange-900 ring-1 ring-orange-600/50', shape: 'diamond',  ord: 3 },
+  'Crítico':  { hex: '#dc2626', ink: '#ffffff', badge: 'bg-red-100 text-red-900 ring-1 ring-red-600/50',          shape: 'octagon',  ord: 4 },
+};
+const TIPOS = {
+  alagamento: { nome: 'Alagamento',       icon: 'waves' },
+  calor:      { nome: 'Calor extremo',    icon: 'thermometer-sun' },
+  energia:    { nome: 'Falta de energia', icon: 'zap-off' },
+  agua:       { nome: 'Falta de água',    icon: 'droplet' },
+  transporte: { nome: 'Transporte',       icon: 'train-front' },
+  outro:      { nome: 'Outro',            icon: 'circle-alert' },
+};
+const PRIO = {
+  1: { txt: 'P1', desc: 'Alerta automático: push + SMS, ignora horário de silêncio', cls: 'bg-red-700 text-white' },
+  2: { txt: 'P2', desc: 'Alerta automático (ou "em verificação" + validação em 10 min)', cls: 'bg-orange-600 text-white' },
+  3: { txt: 'P3', desc: 'Push após validação / para quem ativou o tipo', cls: 'bg-amber-400 text-amber-950' },
+  4: { txt: 'P4', desc: 'Somente no mapa e na lista', cls: 'bg-slate-300 text-slate-900' },
+  5: { txt: 'P5', desc: 'Somente registro interno / mapa', cls: 'bg-slate-200 text-slate-700' },
+};
+const PRAZO = { 1: 300, 2: 600, 3: 900 }; // RN07: prazos de validação humana (s)
+const STATES = ['Reportado', 'Em validação', 'Confirmado', 'Alerta emitido', 'Em monitoramento', 'Encerrado'];
+const ACTIVE = ['Em validação', 'Confirmado', 'Alerta emitido', 'Em monitoramento'];
+const CONFIRMED = ['Confirmado', 'Alerta emitido', 'Em monitoramento'];
+const RECS = {
+  alagamento: ['Evite a área e passagens subterrâneas.', 'Não atravesse água corrente: 30 cm de água podem arrastar um carro.', 'Se a água entrar em casa, desligue a energia no quadro geral.', 'Emergência: Defesa Civil 199 · Bombeiros 193.'],
+  calor: ['Beba água a cada 30 min, mesmo sem sede.', 'Evite sol direto entre 10h e 16h.', 'Verifique idosos, crianças e pets da vizinhança.', 'Mal-estar, confusão ou pele quente e seca: SAMU 192.'],
+  energia: ['Desligue aparelhos da tomada para evitar picos no retorno.', 'Mantenha geladeira e freezer fechados.', 'Pessoas eletrodependentes: avise a concessionária.', 'Fio caído? Não se aproxime — Bombeiros 193.'],
+  agua: ['Use a água da caixa somente para o essencial.', 'Ao retornar, deixe a torneira aberta até a água clarear.', 'Ferva a água antes de beber se houver alteração de cor.'],
+  transporte: ['Considere rotas alternativas (ônibus ou outras linhas).', 'Acompanhe o horário de normalização previsto.', 'Evite plataformas lotadas.'],
+  outro: ['Mantenha distância da ocorrência e siga as orientações oficiais.'],
+};
+const BAIRROS = {
+  'Jardim Pantanal':     { x: 170, y: 335, E: 3, nota: 'área de risco mapeada' },
+  'Vila Curuçá':         { x: 95,  y: 395, E: 2, nota: 'densidade média' },
+  'Itaim Paulista':      { x: 300, y: 285, E: 2, nota: 'histórico de ocorrências' },
+  'São Miguel Paulista': { x: 240, y: 262, E: 2, nota: 'densidade média' },
+  'Jardim Helena':       { x: 60,  y: 232, E: 2, nota: 'histórico de ocorrências' },
+  'Itaquera':            { x: 285, y: 490, E: 3, nota: 'hospital e escolas na área' },
+};
+const HOME = { x: 175, y: 342 };
+const UNIT_M = 15; // 1 unidade do mapa = 15 m  →  500 m ≈ 33 unidades
+const distU = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const distKm = (e) => (distU(e, HOME) * UNIT_M) / 1000;
+const fmtKm = (km) => (km < 1 ? `${Math.max(10, Math.round((km * 1000) / 10) * 10)} m` : `${km.toFixed(1).replace('.', ',')} km`);
+
+/* =====================================================================
+   REGRAS DE NEGÓCIO (RN01–RN07)
+   ===================================================================== */
+// RN03 — nível de risco a partir de R = S × E
+const riskLevel = (R) => (R <= 3 ? 'Baixo' : R <= 6 ? 'Moderado' : R <= 10 ? 'Alto' : 'Crítico');
+// RN04 — corroboração K (fontes independentes; fonte oficial = 100; contestação −15)
+const kOf = (e) => (e.oficial ? 100 : Math.max(0, [0, 50, 80, 100][Math.min(e.indep, 3)] - 15 * e.contest));
+// RN04 — confiança C = 0,4F + 0,3K + 0,2A + 0,1Q (validação humana fixa C = 100)
+const cOf = (e) => (e.validado ? 100 : Math.round(0.4 * e.F + 0.3 * kOf(e) + 0.2 * e.A + 0.1 * e.Q));
+const confLevel = (c) => (c >= 75 ? 'Alta' : c >= 50 ? 'Média' : 'Baixa');
+// RN07 — matriz de prioridade
+const MATRIX = {
+  'Crítico':  { 'Alta': 1, 'Média': 2, 'Baixa': 3 },
+  'Alto':     { 'Alta': 2, 'Média': 3, 'Baixa': 4 },
+  'Moderado': { 'Alta': 3, 'Média': 4, 'Baixa': 4 },
+  'Baixo':    { 'Alta': 4, 'Média': 5, 'Baixa': 5 },
+};
+function calc(e) {
+  const R = e.S * e.E, rl = riskLevel(R), K = kOf(e), C = cOf(e), cl = confLevel(C);
+  return { R, rl, K, C, cl, P: MATRIX[rl][cl] };
+}
+// RN01 — severidade de interrupções (clientes afetados)
+const sevClientes = (n, hosp) => (hosp ? 5 : n < 100 ? 1 : n < 1000 ? 2 : n < 10000 ? 3 : n < 50000 ? 4 : 5);
+// RN04 — qualidade de relato: +40 foto, +30 GPS ≤ 50 m, +30 descrição
+const qRelato = (r) => (r.foto ? 40 : 0) + 30 + (r.desc && r.desc.trim().length > 3 ? 30 : 0);
+
+/* =====================================================================
+   DADOS MOCKADOS (fiéis às personas e às regras)
+   ===================================================================== */
+function seed() {
+  const s0 = SIM_START;
+  const ev = [
+    { id: 'E1', tipo: 'alagamento', titulo: 'Alagamento na Av. Marechal Tito', local: 'Av. Marechal Tito, alt. nº 6.200', bairro: 'Jardim Pantanal', x: 190, y: 325, raio: 30,
+      S: 4, sevTxt: 'S4 · chuva de 55 mm/h (faixa 50–79 mm)', E: 3, expTxt: 'E3 · EMEF a 200 m e área de risco mapeada',
+      F: 90, fTxt: 'Fonte primária: pluviômetro da rede municipal, calibração em dia', indep: 2, contest: 0,
+      A: 95, aTxt: 'Idade média dos dados: 8 min (100 até 5 min; zera aos 60 min)', Q: 70, qTxt: 'Sensores dentro da faixa física; relato comunitário sem foto reduz a média',
+      status: 'Em monitoramento', criado: M(18, 2), atualizado: M(18, 12), validado: false, oficial: false,
+      resumo: 'Chuva de 55 mm/h na última hora e Córrego Três Pontes a 92% da cota de transbordo. Água acima do meio-fio em dois quarteirões.',
+      fontes: [
+        { t: 'sensor', nome: 'Pluviômetro PLV-0231', det: 'Rede municipal · calibração em dia (ago/2026) · leitura 55 mm/h', hora: M(18, 13), principal: true },
+        { t: 'sensor', nome: 'Sensor de nível CRG-009', det: 'Córrego Três Pontes · 92% da cota de transbordo · heartbeat ok', hora: M(18, 12) },
+        { t: 'comunidade', nome: 'Relato de morador', det: 'Autor anônimo (pseudonimizado) · GPS ± 30 m · sem foto', hora: M(18, 4) },
+      ],
+      timeline: [
+        { h: M(18, 2), s: 'Reportado', t: 'Leitura do PLV-0231 ultrapassou 50 mm/h' },
+        { h: M(18, 2), s: 'Em validação', t: 'Motor de risco: R = 4 × 3 = 12 (Crítico) · C = 86' },
+        { h: M(18, 3), s: 'Confirmado', t: 'Confirmado automaticamente (C ≥ 75)' },
+        { h: M(18, 3), s: 'Alerta emitido', t: 'Prioridade P1: push + SMS para 3.480 pessoas' },
+        { h: M(18, 4), s: 'Em monitoramento', t: 'Notificações despachadas' },
+        { h: M(18, 12), s: 'Atualização', t: 'Córrego Três Pontes subiu para 92% da cota' },
+      ] },
+    { id: 'E2', tipo: 'alagamento', titulo: 'Córrego Itaquera perto do transbordo', local: 'R. Ver. João Batista Fitipaldi', bairro: 'Itaim Paulista', x: 250, y: 410, raio: 34,
+      S: 4, sevTxt: 'S4 · nível a 88% da cota (faixa 85–99%)', E: 2, expTxt: 'E2 · histórico de 4 transbordos em 12 meses',
+      F: 90, fTxt: 'Sensor de nível da rede municipal, calibração em dia', indep: 1, contest: 0,
+      A: 100, aTxt: 'Leitura de 1 min atrás', Q: 100, qTxt: 'Leitura dentro da faixa física e heartbeat ok',
+      status: 'Em monitoramento', criado: M(17, 38), atualizado: M(18, 13), validado: false, oficial: false,
+      resumo: 'Nível do Córrego Itaquera em 88% da cota de transbordo e subindo 3% a cada 10 min.',
+      fontes: [
+        { t: 'sensor', nome: 'Sensor de nível CRG-014', det: 'Córrego Itaquera · 88% da cota · heartbeat ok', hora: M(18, 13), principal: true },
+        { t: 'comunidade', nome: 'Relato de morador', det: 'Autor anônimo · com foto (rostos/placas desfocados)', hora: M(17, 52) },
+      ],
+      timeline: [
+        { h: M(17, 38), s: 'Reportado', t: 'CRG-014 passou de 85% da cota' },
+        { h: M(17, 38), s: 'Em validação', t: 'R = 4 × 2 = 8 (Alto) · C = 81' },
+        { h: M(17, 39), s: 'Confirmado', t: 'Confirmado automaticamente (C ≥ 75)' },
+        { h: M(17, 39), s: 'Alerta emitido', t: 'Prioridade P2: push' },
+        { h: M(17, 40), s: 'Em monitoramento', t: 'Notificações despachadas' },
+      ] },
+    { id: 'E3', tipo: 'energia', titulo: 'Interrupção de energia — Vila Curuçá', local: 'Quadrantes 14 a 19', bairro: 'Vila Curuçá', x: 95, y: 395, raio: 45,
+      S: 4, sevTxt: 'S4 · 12.400 clientes afetados (faixa 10.000–49.999)', E: 2, expTxt: 'E2 · densidade média',
+      F: 95, fTxt: 'Fonte oficial: centro de operações da concessionária', indep: 0, contest: 0, oficial: true,
+      A: 100, aTxt: 'Atualizado há 2 min', Q: 100, qTxt: 'Registro oficial completo (área, início, previsão)',
+      status: 'Em monitoramento', criado: M(17, 41), atualizado: M(18, 12), validado: false, retorno: '21:30', clientes: 12400, operador: true,
+      resumo: 'Falha em alimentador após descarga atmosférica. 12.400 clientes sem energia. Previsão de retorno: 21:30.',
+      fontes: [{ t: 'oficial', nome: 'Concessionária de energia — COI', det: 'Publicado por operadora via console · previsão de retorno 21:30', hora: M(17, 41), principal: true }],
+      timeline: [
+        { h: M(17, 41), s: 'Reportado', t: 'Interrupção publicada pela concessionária' },
+        { h: M(17, 41), s: 'Em validação', t: 'R = 4 × 2 = 8 (Alto) · C = 98' },
+        { h: M(17, 41), s: 'Confirmado', t: 'Fonte oficial (K = 100)' },
+        { h: M(17, 42), s: 'Alerta emitido', t: 'Prioridade P2: push para clientes da área' },
+        { h: M(17, 42), s: 'Em monitoramento', t: 'Notificações despachadas' },
+      ] },
+    { id: 'E4', tipo: 'calor', titulo: 'Ilha de calor — Itaquera', local: 'Entorno do Terminal Itaquera', bairro: 'Itaquera', x: 285, y: 490, raio: 50,
+      S: 3, sevTxt: 'S3 · índice de calor 38 °C (faixa 32–40 °C)', E: 2, expTxt: 'E2 · densidade média, pouca arborização',
+      F: 95, fTxt: 'Fonte oficial: estação meteorológica oficial', indep: 0, contest: 0, oficial: true,
+      A: 90, aTxt: 'Boletim de 7 min atrás', Q: 100, qTxt: 'Dado oficial completo',
+      status: 'Em monitoramento', criado: M(16, 10), atualizado: M(18, 7), validado: false,
+      resumo: 'Índice de calor de 38 °C e superfície de asfalto a 52 °C. Diferença de 6 °C em relação ao Parque do Carmo.',
+      fontes: [{ t: 'oficial', nome: 'Estação meteorológica oficial', det: 'Boletim horário · índice de calor 38 °C', hora: M(18, 7), principal: true }],
+      timeline: [
+        { h: M(16, 10), s: 'Reportado', t: 'Boletim oficial de calor' },
+        { h: M(16, 10), s: 'Confirmado', t: 'Fonte oficial (K = 100) · C = 96' },
+        { h: M(16, 11), s: 'Alerta emitido', t: 'P3: push para quem ativou "Calor"' },
+        { h: M(16, 12), s: 'Em monitoramento', t: 'Notificações despachadas' },
+      ] },
+    { id: 'E5', tipo: 'transporte', titulo: 'Linha 12-Safira com velocidade reduzida', local: 'Entre Jd. Romano e São Miguel', bairro: 'São Miguel Paulista', x: 225, y: 232, raio: 40,
+      S: 2, sevTxt: 'S2 · intervalos de até 12 min', E: 2, expTxt: 'E2 · linha de alta demanda no horário de pico',
+      F: 95, fTxt: 'Fonte oficial: operadora ferroviária', indep: 0, contest: 0, oficial: true,
+      A: 80, aTxt: 'Boletim de 14 min atrás', Q: 100, qTxt: 'Dado oficial completo',
+      status: 'Em monitoramento', criado: M(17, 58), atualizado: M(18, 0), validado: false,
+      resumo: 'Velocidade reduzida por chuva forte. Intervalos de até 12 min. Previsão de normalização: 19:30.',
+      fontes: [{ t: 'oficial', nome: 'Operadora ferroviária — CCO', det: 'Boletim oficial via API pública', hora: M(18, 0), principal: true }],
+      timeline: [
+        { h: M(17, 58), s: 'Reportado', t: 'Boletim oficial de operação' },
+        { h: M(17, 58), s: 'Confirmado', t: 'Fonte oficial · C = 94' },
+        { h: M(17, 59), s: 'Alerta emitido', t: 'P3: push para quem tem a Linha 12 na rota' },
+        { h: M(18, 0), s: 'Em monitoramento', t: 'Notificações despachadas' },
+      ] },
+    { id: 'E6', tipo: 'alagamento', titulo: 'Alagamento grave — R. Pedro Rodrigues', local: 'R. Pedro Rodrigues, 300', bairro: 'Vila Curuçá', x: 120, y: 450, raio: 25,
+      S: 4, sevTxt: 'S4 · intensidade "grave" informada (relato sem medição)', E: 3, expTxt: 'E3 · creche municipal a 150 m',
+      F: 65, fTxt: 'Relato comunitário: reputação do autor = 65 (não exibida publicamente)', indep: 1, contest: 0,
+      A: 100, aTxt: 'Relato de 3 min atrás', Q: 100, qTxt: 'Foto + GPS ± 12 m + descrição',
+      status: 'Em validação', criado: M(18, 11), atualizado: M(18, 12), validado: false, filaDesde: s0 - 180, fotos: 2,
+      resumo: '"Água na altura do joelho, carros parados e entrando nas casas da rua." Segundo relato confirma.',
+      fontes: [
+        { t: 'comunidade', nome: 'Relato de morador', det: 'Autor anônimo · foto + GPS ± 12 m + descrição', hora: M(18, 11), principal: true },
+        { t: 'comunidade', nome: 'Relato de morador', det: 'Autor anônimo · com foto', hora: M(18, 12) },
+      ],
+      timeline: [
+        { h: M(18, 11), s: 'Reportado', t: 'Relato comunitário recebido e pseudonimizado' },
+        { h: M(18, 11), s: 'Em validação', t: 'R = 4 × 3 = 12 (Crítico) · C = 71 → P2 "em verificação"' },
+        { h: M(18, 12), s: 'Atualização', t: 'Novo relato correlacionado (500 m / 30 min)' },
+      ] },
+    { id: 'E7', tipo: 'alagamento', titulo: 'Alagamento — Rua Tietê', local: 'Rua Tietê, próximo ao nº 410', bairro: 'Jardim Pantanal', x: 150, y: 285, raio: 22,
+      S: 3, sevTxt: 'S3 · intensidade "moderada" informada (relato sem medição)', E: 2, expTxt: 'E2 · histórico de ocorrências',
+      F: 50, fTxt: 'Relato comunitário: reputação inicial do autor = 50', indep: 0, contest: 0,
+      A: 100, aTxt: 'Relato de 4 min atrás', Q: 70, qTxt: 'Foto + GPS, sem descrição',
+      status: 'Em validação', criado: M(18, 10), atualizado: M(18, 10), validado: false, filaDesde: s0 - 240, fotos: 1,
+      resumo: 'Relato isolado de água acumulada cobrindo a calçada.',
+      fontes: [{ t: 'comunidade', nome: 'Relato de morador', det: 'Autor anônimo · foto + GPS ± 18 m', hora: M(18, 10), principal: true }],
+      timeline: [
+        { h: M(18, 10), s: 'Reportado', t: 'Relato comunitário recebido e pseudonimizado' },
+        { h: M(18, 10), s: 'Em validação', t: 'R = 3 × 2 = 6 (Moderado) · C = 47 (Baixa) → fila P4' },
+      ] },
+    { id: 'E8', tipo: 'agua', titulo: 'Falta de água — Jardim Helena', local: 'Entorno da R. Capachós', bairro: 'Jardim Helena', x: 60, y: 232, raio: 35,
+      S: 3, sevTxt: 'S3 · relatos indicam ~1.500 imóveis', E: 2, expTxt: 'E2 · histórico de ocorrências',
+      F: 55, fTxt: 'Relatos comunitários (reputação média 55)', indep: 1, contest: 0,
+      A: 70, aTxt: 'Idade média: 21 min', Q: 60, qTxt: 'GPS + descrição, sem foto',
+      status: 'Em validação', criado: M(17, 50), atualizado: M(17, 55), validado: false, filaDesde: s0 - 1440,
+      resumo: 'Torneiras secas desde 17h30 em várias ruas. Sem comunicado oficial até agora.',
+      fontes: [
+        { t: 'comunidade', nome: 'Relato de morador', det: 'Autor anônimo · GPS + descrição', hora: M(17, 50), principal: true },
+        { t: 'comunidade', nome: 'Relato de morador', det: 'Autor anônimo · GPS', hora: M(17, 55) },
+      ],
+      timeline: [
+        { h: M(17, 50), s: 'Reportado', t: 'Relato comunitário' },
+        { h: M(17, 50), s: 'Em validação', t: 'R = 3 × 2 = 6 (Moderado) · C = 57 (Média) → P4' },
+      ] },
+    { id: 'E9', tipo: 'alagamento', titulo: 'Alagamento — Viaduto Itaim Paulista', local: 'Sob o viaduto da Estrada Dom João Nery', bairro: 'Itaim Paulista', x: 300, y: 285, raio: 20,
+      S: 3, sevTxt: 'S3 · chuva de 32 mm/h', E: 2, expTxt: 'E2', F: 90, fTxt: 'Sensor municipal', indep: 1, contest: 0, A: 40, aTxt: 'Dado antigo', Q: 100, qTxt: 'ok',
+      status: 'Encerrado', criado: M(15, 40), atualizado: M(16, 20), validado: false,
+      resumo: 'Água escoou. Sensores abaixo de S1 por 30 min.',
+      fontes: [{ t: 'sensor', nome: 'Pluviômetro PLV-0410', det: 'Rede municipal', hora: M(16, 20), principal: true }],
+      timeline: [
+        { h: M(15, 40), s: 'Reportado', t: 'Leitura acima de 25 mm/h' },
+        { h: M(15, 41), s: 'Confirmado', t: 'C = 81' },
+        { h: M(15, 41), s: 'Alerta emitido', t: 'P3' },
+        { h: M(15, 42), s: 'Em monitoramento', t: '' },
+        { h: M(16, 20), s: 'Encerrado', t: 'Normalizado: S ≤ 1 por 30 min (RN09)' },
+      ] },
+    { id: 'E10', tipo: 'calor', titulo: 'Temperatura elevada — Parque Ecológico', local: 'Parque Ecológico do Tietê', bairro: 'Jardim Helena', x: 62, y: 168, raio: 40,
+      S: 2, sevTxt: 'S2 · índice de calor 29 °C', E: 1, expTxt: 'E1 · baixa densidade',
+      F: 90, fTxt: 'Estação de temperatura da rede municipal', indep: 0, contest: 0, A: 100, aTxt: 'Leitura de 2 min atrás', Q: 100, qTxt: 'Leitura ok',
+      status: 'Em monitoramento', criado: M(17, 30), atualizado: M(18, 12), validado: false, semAlerta: true,
+      resumo: 'Índice de calor de 29 °C. Sem risco relevante — registro para série histórica.',
+      fontes: [{ t: 'sensor', nome: 'Estação TMP-0077', det: 'Rede municipal · calibração em dia', hora: M(18, 12), principal: true }],
+      timeline: [
+        { h: M(17, 30), s: 'Reportado', t: 'Leitura de temperatura' },
+        { h: M(17, 30), s: 'Confirmado', t: 'C = 66 (Média) · R = 2 (Baixo) → P5' },
+        { h: M(17, 30), s: 'Em monitoramento', t: 'Sem alerta (P5): apenas mapa' },
+      ] },
+  ];
+  const notifs = [
+    { id: 'n1', cat: 'alerta', titulo: 'Alagamento CRÍTICO a 340 m', texto: 'Av. Marechal Tito · Confiança Alta (86) · evite a região.', hora: M(18, 3), lida: false, eventId: 'E1', upd: 2 },
+    { id: 'n2', cat: 'alerta', titulo: 'Interrupção de energia na sua área', texto: 'Vila Curuçá · 12.400 clientes · retorno previsto 21:30.', hora: M(17, 42), lida: false, eventId: 'E3' },
+    { id: 'n3', cat: 'alerta', titulo: 'Córrego Itaquera perto do transbordo', texto: 'Risco Alto · Confiança Alta (81) · sensor CRG-014.', hora: M(17, 39), lida: true, eventId: 'E2' },
+    { id: 'n4', cat: 'sistema', titulo: 'Situação normalizada', texto: 'Alagamento sob o Viaduto Itaim Paulista foi encerrado.', hora: M(16, 20), lida: true, eventId: 'E9' },
+    { id: 'n5', cat: 'relato', titulo: 'Seu relato de 12/11 foi confirmado', texto: 'Obrigado! Ele ajudou a alertar 1.200 vizinhos.', hora: M(9, 5), lida: true, eventId: null },
+    { id: 'n6', cat: 'sistema', titulo: 'Histórico de localização apagado', texto: 'Removemos automaticamente dados de localização com mais de 30 dias (RNF09).', hora: M(3, 0), lida: true, eventId: null },
+  ];
+  return {
+    view: 'T01', prevView: null, visitor: false, logged: false, demoHidden: false,
+    user: { nome: 'Marina Souza', tel: '(11) 98765-4412', email: 'marina.souza@email.com', pseudo: 'psd_7f3a9c', reputacao: 60 },
+    consents: { loc: true, push: true, stats: false },
+    t01: { mode: 'cidadao', codeSent: false, agentProfile: 'defesa' },
+    events: ev, notifs,
+    sel: null, selected: 'E1', zoom: 1, showAreas: true,
+    mapTypes: { alagamento: true, calor: true, energia: true, agua: true, transporte: true, outro: true }, onlyHigh: false,
+    listTab: 'perto', listF: { tipo: 'todos', risco: 'todos', conf: 'todos' }, listSort: 'prioridade', showClosed: false,
+    notifTab: 'todas', voted: {},
+    t07: { step: 1, tipo: null, pos: { x: 158, y: 292 }, intensidade: 'moderada', foto: false, desc: '' },
+    reports: [{ id: 'old1', protocolo: 'URB-2026-004390', tipo: 'alagamento', local: 'Rua Tietê, 410', data: '12/11', statusFixo: 'Encerrado', eventId: null }],
+    lastReport: null, reportSeq: 4812, eventSeq: 11,
+    areas: [
+      { id: 'casa', nome: 'Casa', desc: 'Jardim Pantanal', raio: 1, ativo: true, icon: 'house' },
+      { id: 'trab', nome: 'Trabalho', desc: 'Centro — Sé', raio: 0.5, ativo: true, icon: 'briefcase' },
+      { id: 'rota', nome: 'Rota diária', desc: 'Linha 12-Safira (Jd. Romano → Brás)', raio: 0.5, ativo: true, icon: 'route' },
+    ],
+    prefs: { tipos: { alagamento: true, calor: true, energia: true, agua: true, transporte: true }, nivelMin: 'Moderado', silencio: true, de: '23:00', ate: '06:00', canais: { push: true, email: false, sms: true } },
+    cTab: 'fila', cRole: 'defesa', cSel: 'E6',
+    intForm: { servico: 'energia', bairro: 'Jardim Pantanal', inicio: '18:30', retorno: '22:00', clientes: 3200, hosp: false },
+    audit: [], lastSync: Date.now() - 40000, pushedOnce: false,
+  };
+}
+let S = seed();
+function seedAudit() {
+  addAudit('Sistema · motor de risco', 'Encerrou evento automaticamente', 'E9', 'Normalizado: S ≤ 1 por 30 min (RN09)', M(16, 20));
+  addAudit('Juliana Torres · opr_112', 'Publicou interrupção de serviço', 'E3', '12.400 clientes · retorno 21:30', M(17, 41));
+  addAudit('Sistema · motor de risco', 'Confirmou (C=81) e emitiu alerta P2', 'E2', 'Confiança ≥ 75 (RN04/RN07)', M(17, 39));
+  addAudit('Sistema · motor de risco', 'Confirmou (C=86) e emitiu alerta P1', 'E1', 'Confiança ≥ 75 · Crítico (RN07)', M(18, 3));
+  addAudit('Sistema · LGPD', 'Pseudonimizou relato e desfocou 2 fotos', 'E6', 'Autor → psd_c41e02', M(18, 11));
+}
+seedAudit();
+
+/* ---------- Helpers de estado ---------- */
+const ev = (id) => S.events.find((e) => e.id === id);
+const activeAlerts = () => S.events.filter((e) => CONFIRMED.includes(e.status));
+const mapEvents = () => S.events.filter((e) => ACTIVE.includes(e.status) && S.mapTypes[e.tipo] !== false && (!S.onlyHigh || calc(e).cl === 'Alta'));
+const reachesArea = (e) => {
+  const casa = S.areas.find((a) => a.id === 'casa');
+  const rota = S.areas.find((a) => a.id === 'rota');
+  const inCasa = casa && casa.ativo && distU(e, HOME) <= e.raio + (casa.raio * 1000) / UNIT_M;
+  const inRota = rota && rota.ativo && e.tipo === 'transporte';
+  return inCasa || inRota;
+};
+const contributed = (e) => e.fontes.some((f) => f.minha);
+function reachesMarina(e) {
+  if (S.visitor || !S.consents.push) return false;
+  if (contributed(e)) return true;
+  const c = calc(e);
+  if (!reachesArea(e)) return false;
+  if (c.P === 1) return true; // P1 ignora preferências e silêncio (RN08)
+  if (S.prefs.tipos[e.tipo] === false) return false;
+  return RISK[c.rl].ord >= RISK[S.prefs.nivelMin].ord;
+}
+function hash(str) { let h = 5381; for (const ch of str) h = ((h << 5) + h + ch.charCodeAt(0)) >>> 0; return h.toString(16).padStart(8, '0'); }
+function addAudit(user, acao, eventId, just, hora) {
+  const prev = S.audit[0] ? S.audit[0].hash : '00000000';
+  const h = hora ?? simMin();
+  S.audit.unshift({ hora: h, user, acao, eventId, just, prev, hash: hash(prev + user + acao + eventId + just + h) });
+}
+function tl(e, s, t) { e.timeline.push({ h: simMin(), s, t }); e.atualizado = simMin(); }
+
+/* =====================================================================
+   COMPONENTES VISUAIS
+   ===================================================================== */
+function shapeSvg(level, size = 16, dashed = false) {
+  const c = RISK[level].hex;
+  const st = dashed ? 'stroke="#1e293b" stroke-width="1.6" stroke-dasharray="3 2"' : 'stroke="#ffffff" stroke-width="1.6"';
+  const shapes = {
+    circle: `<circle cx="10" cy="10" r="8.6" fill="${c}" ${st}/>`,
+    triangle: `<polygon points="10,1.2 19.2,18.4 0.8,18.4" fill="${c}" ${st} stroke-linejoin="round"/>`,
+    diamond: `<polygon points="10,0.8 19.2,10 10,19.2 0.8,10" fill="${c}" ${st} stroke-linejoin="round"/>`,
+    octagon: `<polygon points="6,0.8 14,0.8 19.2,6 19.2,14 14,19.2 6,19.2 0.8,14 0.8,6" fill="${c}" ${st} stroke-linejoin="round"/>`,
+  };
+  return `<svg width="${size}" height="${size}" viewBox="0 0 20 20" aria-hidden="true" class="shrink-0">${shapes[RISK[level].shape]}</svg>`;
+}
+const riskBadge = (lvl, big) => `<span class="inline-flex items-center gap-1.5 rounded-full ${big ? 'px-3 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'} font-bold ${RISK[lvl].badge}">${shapeSvg(lvl, big ? 15 : 12)}Risco ${lvl}</span>`;
+const prioChip = (p, big) => `<span class="inline-flex items-center justify-center rounded-md ${big ? 'px-2.5 py-1 text-sm' : 'px-2 py-0.5 text-xs'} font-extrabold font-mono ${PRIO[p].cls}" title="${PRIO[p].desc}">${PRIO[p].txt}</span>`;
+function sealInfo(e) {
+  const c = calc(e);
+  if (e.validado) return { cls: 'bg-indigo-700 text-white shadow-indigo-300', icon: 'badge-check', label: 'Validado pela Defesa Civil', short: 'Validado', c };
+  if (c.cl === 'Alta') return { cls: 'bg-sky-700 text-white shadow-sky-300', icon: 'shield-check', label: 'Confiança Alta', short: 'Alta', c };
+  if (c.cl === 'Média') return { cls: 'bg-sky-50 text-sky-900 ring-2 ring-sky-400', icon: 'shield-half', label: 'Confiança Média', short: 'Média', c };
+  return { cls: 'bg-white text-slate-700 border-2 border-dashed border-slate-400', icon: 'shield-question', label: 'Não verificado · Baixa', short: 'Baixa', c };
+}
+// Selo de Confiança — componente central do tema (sempre clicável → T05)
+function seal(e, size = 'sm') {
+  const s = sealInfo(e);
+  const big = size === 'lg';
+  return `<button onclick="event.stopPropagation();A.openTrust('${e.id}')" class="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 rounded-full ${big ? 'pl-3 pr-1.5 py-1.5 text-sm' : 'pl-2 pr-1 py-0.5 text-xs'} font-bold shadow-sm hover:brightness-110 ${s.cls}" aria-label="${s.label}, nota ${s.c.C} de 100. Ver origem dos dados">
+    <i data-lucide="${s.icon}" class="${big ? 'w-4 h-4' : 'w-3.5 h-3.5'}"></i><span>${s.label}</span>
+    <span class="font-mono rounded-full ${big ? 'px-2 py-0.5' : 'px-1.5'} ${e.validado || s.c.cl === 'Alta' ? 'bg-white/20' : 'bg-slate-900/10'}">${s.c.C}</span></button>`;
+}
+const statusChip = (st) => {
+  const map = { 'Em validação': 'bg-amber-100 text-amber-900', 'Confirmado': 'bg-sky-100 text-sky-900', 'Alerta emitido': 'bg-red-100 text-red-900', 'Em monitoramento': 'bg-violet-100 text-violet-900', 'Encerrado': 'bg-slate-200 text-slate-700', 'Descartado': 'bg-slate-200 text-slate-500 line-through', 'Reportado': 'bg-slate-100 text-slate-700' };
+  const icon = { 'Em validação': 'hourglass', 'Confirmado': 'check', 'Alerta emitido': 'megaphone', 'Em monitoramento': 'activity', 'Encerrado': 'circle-check-big', 'Descartado': 'x', 'Reportado': 'inbox' };
+  return `<span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold ${map[st] || ''}"><i data-lucide="${icon[st] || 'circle'}" class="w-3 h-3"></i>${st === 'Em validação' ? 'Em verificação' : st}</span>`;
+};
+const typeIcon = (tipo, cls = 'w-5 h-5') => `<i data-lucide="${TIPOS[tipo].icon}" class="${cls}"></i>`;
+function typeBubble(e, size = 'w-11 h-11') {
+  const c = calc(e);
+  return `<span class="${size} rounded-2xl grid place-items-center shrink-0" style="background:${RISK[c.rl].hex};color:${RISK[c.rl].ink}">${typeIcon(e.tipo)}</span>`;
+}
+const srcIcon = { sensor: 'radio-tower', oficial: 'landmark', comunidade: 'users', validacao: 'badge-check' };
+const srcLabel = { sensor: 'Sensor IoT', oficial: 'Base pública oficial', comunidade: 'Registro comunitário', validacao: 'Validação humana' };
+const srcColor = { sensor: 'bg-cyan-100 text-cyan-800', oficial: 'bg-emerald-100 text-emerald-800', comunidade: 'bg-violet-100 text-violet-800', validacao: 'bg-indigo-100 text-indigo-800' };
+function originSummary(e) {
+  const n = { sensor: 0, oficial: 0, comunidade: 0 };
+  e.fontes.forEach((f) => { if (n[f.t] !== undefined) n[f.t]++; });
+  const p = [];
+  if (n.oficial) p.push('Fonte oficial');
+  if (n.sensor) p.push(n.sensor === 1 ? 'Sensor' : `${n.sensor} sensores`);
+  if (n.comunidade) p.push(`${n.comunidade} morador${n.comunidade > 1 ? 'es' : ''}`);
+  return p.join(' + ');
+}
+
+/* ---------- Mapa simulado (SVG) ---------- */
+function mapBase(opts = {}) {
+  const areas = opts.areas !== false;
+  const circles = (opts.events || []).map((e) => { const c = calc(e); return `<circle cx="${e.x}" cy="${e.y}" r="${e.raio}" fill="${RISK[c.rl].hex}" fill-opacity=".16" stroke="${RISK[c.rl].hex}" stroke-opacity=".6" stroke-width="1.2" ${e.status === 'Em validação' ? 'stroke-dasharray="4 3"' : ''}/>`; }).join('');
+  return `<svg viewBox="0 0 360 640" class="absolute inset-0 w-full h-full" aria-hidden="true">
+    <defs><pattern id="blocks" width="22" height="22" patternUnits="userSpaceOnUse"><rect width="22" height="22" fill="#e8ecef"/><rect x="2" y="2" width="18" height="18" rx="2" fill="#dde3e8"/></pattern></defs>
+    <rect width="360" height="640" fill="url(#blocks)"/>
+    <ellipse cx="62" cy="168" rx="62" ry="26" fill="#bbe3b5"/><ellipse cx="330" cy="560" rx="50" ry="40" fill="#bbe3b5"/><ellipse cx="200" cy="600" rx="40" ry="22" fill="#cdeac7"/>
+    <path d="M0,205 C70,175 130,222 205,190 S310,150 360,140" fill="none" stroke="#7cb6ef" stroke-width="17" stroke-linecap="round"/>
+    <path d="M0,205 C70,175 130,222 205,190 S310,150 360,140" fill="none" stroke="#a5cff5" stroke-width="10"/>
+    <path d="M230,640 C220,540 205,420 195,330 S178,240 170,205" fill="none" stroke="#7cb6ef" stroke-width="4"/>
+    <path d="M360,520 C300,470 260,430 248,400 S225,330 215,300" fill="none" stroke="#7cb6ef" stroke-width="4"/>
+    <path d="M0,252 L360,212" stroke="#64748b" stroke-width="3" stroke-dasharray="7 4"/>
+    <g stroke="#ffffff" stroke-linecap="round" fill="none">
+      <path d="M0,392 C120,355 240,322 360,300" stroke-width="7"/><path d="M0,330 L360,270" stroke-width="5"/>
+      <path d="M140,640 L205,300" stroke-width="5"/><path d="M150,640 C200,560 260,500 340,450" stroke-width="6"/>
+      <path d="M40,640 L95,250" stroke-width="4"/><path d="M300,640 L310,230" stroke-width="4"/><path d="M0,470 L360,430" stroke-width="4"/>
+    </g>
+    ${areas ? `<circle cx="${HOME.x}" cy="${HOME.y}" r="67" fill="#3b82f6" fill-opacity=".06" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text x="${HOME.x}" y="${HOME.y + 80}" text-anchor="middle" font-size="9" font-weight="700" fill="#1d4ed8">CASA · 1 km</text>
+      <path d="M0,252 L360,212" stroke="#2563eb" stroke-width="2" stroke-opacity=".35" stroke-dasharray="2 5"/>` : ''}
+    ${circles}
+    <g font-size="9.5" font-weight="700" fill="#64748b" letter-spacing="1">
+      <text x="62" y="134" text-anchor="middle" fill="#3f7d3a">PARQUE ECOLÓGICO</text><text x="290" y="128">RIO TIETÊ</text>
+      <text x="40" y="270">JD. HELENA</text><text x="236" y="250">SÃO MIGUEL</text><text x="280" y="320">ITAIM PAULISTA</text>
+      <text x="112" y="310">JD. PANTANAL</text><text x="30" y="430">VILA CURUÇÁ</text><text x="250" y="530">ITAQUERA</text>
+      <text x="60" y="590">GUAIANASES</text><text x="16" y="246" font-size="8" fill="#475569">LINHA 12</text>
+    </g>
+  </svg>`;
+}
+function marker(e, onclickFn = 'A.selectEvent') {
+  const c = calc(e), unver = e.status === 'Em validação', size = c.rl === 'Crítico' ? 40 : 34;
+  const selected = (S.view === 'T09' ? S.cSel : S.sel) === e.id;
+  return `<button class="absolute -translate-x-1/2 -translate-y-1/2 z-10" style="left:${(e.x / 360) * 100}%;top:${(e.y / 640) * 100}%" onclick="${onclickFn}('${e.id}')"
+      aria-label="${TIPOS[e.tipo].nome}: risco ${c.rl}, ${sealInfo(e).label} ${c.C}. ${unver ? 'Em verificação.' : ''}">
+    ${c.P === 1 ? `<span class="absolute inset-0 rounded-full animate-ping" style="background:${RISK[c.rl].hex};opacity:.35"></span>` : ''}
+    <span class="relative grid place-items-center ${selected ? 'scale-125' : ''} transition" style="width:${size}px;height:${size}px">
+      ${shapeSvg(c.rl, size, unver)}
+      <i data-lucide="${TIPOS[e.tipo].icon}" class="absolute w-4 h-4 ${RISK[c.rl].shape === 'triangle' ? 'mt-1.5' : ''}" style="color:${RISK[c.rl].ink}"></i>
+    </span>
+    ${unver ? '<span class="absolute -top-1 -right-1 bg-white text-slate-800 text-[10px] font-extrabold rounded-full w-4 h-4 grid place-items-center ring-1 ring-slate-500">?</span>' : ''}
+    <span class="absolute left-1/2 -translate-x-1/2 top-full mt-0.5 whitespace-nowrap text-[9px] font-bold px-1.5 rounded bg-white/95 text-slate-800 shadow">${c.rl}${unver ? ' · ?' : ''}</span>
+  </button>`;
+}
+const userDot = () => `<span class="absolute -translate-x-1/2 -translate-y-1/2 z-[5] pointer-events-none" style="left:${(HOME.x / 360) * 100}%;top:${(HOME.y / 640) * 100}%" aria-label="Sua localização">
+  <span class="absolute -inset-2 rounded-full bg-blue-500/25 animate-pulse"></span><span class="relative block w-4 h-4 rounded-full bg-blue-600 ring-[3px] ring-white shadow"></span></span>`;
+
+/* ---------- Cabeçalho padrão das telas internas ---------- */
+const backHeader = (title, back = 'back', extra = '') => `<div class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-100 px-3 py-2.5 flex items-center gap-2">
+  <button onclick="A.${back === 'back' ? 'back()' : `go('${back}')`}" class="p-2 -ml-1 rounded-full hover:bg-slate-100" aria-label="Voltar"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+  <h1 class="font-bold text-[17px] flex-1 truncate">${title}</h1>${extra}</div>`;
+const pageHeader = (title, sub, extra = '') => `<div class="px-5 pt-3 pb-3 flex items-end justify-between gap-2"><div><h1 class="text-2xl font-extrabold tracking-tight">${title}</h1>${sub ? `<p class="text-sm text-slate-500">${sub}</p>` : ''}</div>${extra}</div>`;
+const toggle = (on, fn, label) => `<button role="switch" aria-checked="${on}" aria-label="${label}" onclick="${fn}" class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${on ? 'bg-sky-600' : 'bg-slate-300'}"><span class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${on ? 'translate-x-5' : 'translate-x-0.5'}"></span></button>`;
+const visitorLock = (what) => `<div class="p-8 text-center"><div class="mx-auto w-14 h-14 rounded-2xl bg-slate-100 grid place-items-center mb-3"><i data-lucide="lock" class="w-6 h-6 text-slate-500"></i></div>
+  <h2 class="font-bold text-lg">Entre para ${what}</h2><p class="text-sm text-slate-500 mt-1">No modo visitante você vê apenas o mapa público.</p>
+  <button onclick="A.go('T01')" class="mt-4 px-5 py-2.5 rounded-xl bg-sky-700 text-white font-semibold">Entrar com telefone</button></div>`;
+
+/* =====================================================================
+   VIEWS DO APP DO CIDADÃO
+   ===================================================================== */
+
+/* ---------- T01 — Boas-vindas, login e consentimento LGPD ---------- */
+function viewT01() {
+  const t = S.t01;
+  const consentRow = (k, title, desc, tag) => `<div class="flex items-start gap-3 py-3 border-t border-slate-100">
+    <div class="flex-1"><div class="text-sm font-semibold flex items-center gap-2">${title}<span class="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">${tag}</span></div>
+    <p class="text-xs text-slate-500 mt-0.5">${desc}</p></div>${toggle(S.consents[k], `A.consent('${k}')`, title)}</div>`;
+  const cidadao = `
+    <label for="tel" class="text-sm font-semibold">Seu celular</label>
+    <div class="mt-1 flex gap-2"><input id="tel" value="${esc(S.user.tel)}" class="flex-1 min-w-0 rounded-xl border border-slate-300 px-3 py-2.5 text-[15px]" inputmode="tel" aria-describedby="telHelp">
+      <button onclick="A.sendCode()" class="px-3 shrink-0 whitespace-nowrap rounded-xl ${t.codeSent ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-900 text-white'} text-sm font-semibold">${t.codeSent ? 'Enviado ✓' : 'Enviar código'}</button></div>
+    <p id="telHelp" class="text-[11px] text-slate-500 mt-1 flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i>Não pedimos CPF nem endereço completo (minimização — LGPD).</p>
+    ${t.codeSent ? `<div class="mt-3 fade-in"><label class="text-sm font-semibold">Código SMS</label><div class="mt-1 flex gap-2">${'4821'.split('').map((d) => `<input value="${d}" aria-label="dígito" class="w-11 h-12 text-center text-xl font-bold rounded-xl border border-slate-300">`).join('')}</div><p class="text-[11px] text-emerald-700 mt-1">Código preenchido automaticamente (demo).</p></div>` : ''}
+    <div class="mt-4 rounded-2xl bg-slate-50 p-3">
+      <div class="flex items-center gap-2 text-sm font-bold"><i data-lucide="shield-check" class="w-4 h-4 text-sky-700"></i>Seus dados, suas escolhas (LGPD)</div>
+      ${consentRow('loc', 'Localização em tempo real', 'Para avisar sobre riscos onde você está. Sem isso, usamos só suas áreas cadastradas.', 'Opcional')}
+      ${consentRow('push', 'Notificações push', 'Alertas de risco perto de você e status dos seus relatos.', 'Recomendado')}
+      ${consentRow('stats', 'Uso estatístico dos relatos', 'Seus relatos, anonimizados, entram nos indicadores públicos.', 'Opcional')}
+      <button onclick="A.privacyInfo()" class="mt-1 text-xs font-semibold text-sky-700 underline">Como usamos seus dados · Política de Privacidade</button>
+    </div>
+    <button onclick="A.loginCitizen()" class="mt-4 w-full py-3.5 rounded-2xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-[15px] flex items-center justify-center gap-2">Continuar como cidadão<i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+    <div class="mt-3 grid grid-cols-2 gap-2">
+      <button onclick="A.loginVisitor()" class="py-2.5 rounded-xl border border-slate-300 text-sm font-semibold flex items-center justify-center gap-1.5"><i data-lucide="map" class="w-4 h-4"></i>Visitante</button>
+      <button onclick="A.t01Mode('agente')" class="py-2.5 rounded-xl border border-slate-300 text-sm font-semibold flex items-center justify-center gap-1.5"><i data-lucide="siren" class="w-4 h-4"></i>Sou agente</button>
+    </div>`;
+  const agente = `
+    <button onclick="A.t01Mode('cidadao')" class="text-sm text-sky-700 font-semibold flex items-center gap-1 mb-3"><i data-lucide="arrow-left" class="w-4 h-4"></i>Voltar</button>
+    <h2 class="font-bold text-lg">Acesso de agente público</h2><p class="text-xs text-slate-500 mb-3">Login institucional com autenticação em dois fatores (MFA).</p>
+    <label class="text-sm font-semibold" for="perfil">Perfil</label>
+    <select id="perfil" onchange="S.t01.agentProfile=this.value;A.render()" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5">
+      <option value="defesa" ${t.agentProfile === 'defesa' ? 'selected' : ''}>Defesa Civil — Sgt. Ricardo Almeida</option>
+      <option value="operador" ${t.agentProfile === 'operador' ? 'selected' : ''}>Operadora de energia — Juliana Torres</option></select>
+    <label class="text-sm font-semibold block mt-3">E-mail institucional</label>
+    <input class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" value="${t.agentProfile === 'defesa' ? 'ricardo.almeida@defesacivil.sp.gov.br' : 'juliana.torres@energia.com.br'}">
+    <label class="text-sm font-semibold block mt-3">Senha</label><input type="password" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" value="demo1234">
+    <label class="text-sm font-semibold block mt-3">Código MFA (app autenticador)</label><input class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-mono tracking-[.4em]" value="391204">
+    <button onclick="A.loginAgent()" class="mt-4 w-full py-3.5 rounded-2xl bg-slate-900 text-white font-bold flex items-center justify-center gap-2"><i data-lucide="monitor" class="w-4 h-4"></i>Entrar no console</button>
+    <p class="text-[11px] text-slate-500 mt-2 flex items-center gap-1"><i data-lucide="file-lock" class="w-3 h-3"></i>Todas as ações no console geram log de auditoria (RNF08).</p>`;
+  return `<div class="min-h-full bg-gradient-to-b from-sky-900 via-sky-950 to-slate-950 px-5 pt-4 pb-6">
+    <div class="pt-2 text-white">
+      <div class="flex items-center gap-3"><span class="w-12 h-12 rounded-2xl bg-white/10 ring-1 ring-white/20 grid place-items-center"><i data-lucide="shield-alert" class="w-7 h-7 text-sky-300"></i></span>
+        <div><div class="text-2xl font-extrabold tracking-tight">Alerta Vivo</div><div class="text-[11px] uppercase tracking-widest text-sky-300">Urban Risk Intelligence Platform</div></div></div>
+      <p class="mt-4 text-[15px] text-sky-100 leading-snug">Alagamentos, calor extremo e falta de serviços perto de você — <b class="text-white">com a origem e o nível de confiança de cada informação.</b></p>
+    </div>
+    <div class="mt-5 bg-white rounded-3xl p-5 shadow-2xl fade-in">${t.mode === 'agente' ? agente : cidadao}</div>
+  </div>`;
+}
+
+/* ---------- T02 — Painel de acompanhamento (mapa) ---------- */
+function viewT02() {
+  const evs = mapEvents();
+  const near = activeAlerts().filter((e) => distKm(e) <= 2);
+  const crit = near.filter((e) => calc(e).rl === 'Crítico').length;
+  const sel = S.sel && ev(S.sel);
+  const chip = (k) => `<button onclick="A.mapType('${k}')" aria-pressed="${S.mapTypes[k]}" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${S.mapTypes[k] ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 line-through'}">${typeIcon(k, 'w-3.5 h-3.5')}${TIPOS[k].nome}</button>`;
+  return `<div class="absolute inset-0 overflow-hidden map-bg">
+    <div id="mapScroll" class="absolute inset-0 overflow-auto no-scrollbar">
+      <div class="relative" style="width:${S.zoom * 100}%;aspect-ratio:360/640">${mapBase({ areas: S.showAreas, events: evs })}${evs.map((e) => marker(e)).join('')}${userDot()}</div>
+    </div>
+    <div class="absolute top-0 inset-x-0 p-3 space-y-2 pointer-events-none">
+      ${S.visitor ? '<div class="pointer-events-auto rounded-xl bg-amber-100 text-amber-900 text-xs font-semibold px-3 py-2 flex items-center gap-2"><i data-lucide="eye" class="w-4 h-4"></i>Modo visitante: mapa público, sem notificações. <button onclick="A.go(\'T01\')" class="underline ml-auto">Entrar</button></div>' : ''}
+      <div class="pointer-events-auto flex gap-2">
+        <label class="flex-1 flex items-center gap-2 bg-white rounded-2xl shadow-md px-3 py-2.5"><i data-lucide="search" class="w-4 h-4 text-slate-400"></i><input aria-label="Buscar endereço" placeholder="Buscar endereço ou bairro" class="flex-1 text-sm outline-none bg-transparent" onkeydown="if(event.key==='Enter')A.toast('Busca de endereço simulada no protótipo')"></label>
+        <button onclick="A.go('T03')" class="bg-white rounded-2xl shadow-md px-3" aria-label="Ver lista de alertas"><i data-lucide="list" class="w-5 h-5"></i></button>
+      </div>
+      <button onclick="A.go('T03')" class="pointer-events-auto w-full text-left bg-white rounded-2xl shadow-md px-3.5 py-2.5 flex items-center gap-3">
+        <span class="w-9 h-9 rounded-xl bg-red-600 grid place-items-center text-white"><i data-lucide="siren" class="w-5 h-5"></i></span>
+        <span class="flex-1"><span class="block text-sm font-bold">${near.length} alertas ativos até 2 km</span><span class="block text-xs text-slate-500">${crit} Crítico · toque para ver a lista</span></span>
+        <span class="text-right text-[10px] leading-tight text-slate-500"><span class="flex items-center gap-1 justify-end text-emerald-700 font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Ao vivo</span><span id="syncStamp">há 40 s</span></span>
+      </button>
+      <div class="pointer-events-auto flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+        <button onclick="A.onlyHigh()" aria-pressed="${S.onlyHigh}" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm ${S.onlyHigh ? 'bg-sky-700 text-white' : 'bg-white text-sky-800 ring-1 ring-sky-300'}"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i>Só confiança Alta</button>
+        ${['alagamento', 'calor', 'energia', 'agua', 'transporte'].map(chip).join('')}
+      </div>
+    </div>
+    <div class="absolute right-3 top-[190px] flex flex-col gap-2 z-20">
+      <button onclick="A.zoom(1)" class="w-10 h-10 rounded-xl bg-white shadow-md grid place-items-center" aria-label="Aproximar"><i data-lucide="plus" class="w-5 h-5"></i></button>
+      <button onclick="A.zoom(-1)" class="w-10 h-10 rounded-xl bg-white shadow-md grid place-items-center" aria-label="Afastar"><i data-lucide="minus" class="w-5 h-5"></i></button>
+      <button onclick="A.toggleAreas()" class="w-10 h-10 rounded-xl ${S.showAreas ? 'bg-blue-600 text-white' : 'bg-white'} shadow-md grid place-items-center" aria-label="Mostrar minhas áreas"><i data-lucide="layers" class="w-5 h-5"></i></button>
+      <button onclick="A.centerMe()" class="w-10 h-10 rounded-xl bg-white shadow-md grid place-items-center" aria-label="Centralizar em mim"><i data-lucide="locate-fixed" class="w-5 h-5 text-blue-600"></i></button>
+    </div>
+    ${!sel ? `<button onclick="A.go('T07')" class="absolute bottom-4 right-4 z-20 flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-900 text-white font-bold shadow-xl"><i data-lucide="plus" class="w-5 h-5"></i>Relatar ocorrência</button>
+      <div class="absolute bottom-4 left-3 z-20 bg-white/95 rounded-xl shadow px-2.5 py-2 text-[10px] space-y-1">${Object.keys(RISK).map((l) => `<div class="flex items-center gap-1.5">${shapeSvg(l, 11)}<span class="font-semibold">${l}</span></div>`).join('')}<div class="flex items-center gap-1.5"><span class="w-[11px] h-[11px] rounded-full border border-dashed border-slate-700"></span>Em verificação</div></div>` : ''}
+    ${sel ? sheet(sel) : ''}
+  </div>`;
+}
+function sheet(e) {
+  const c = calc(e);
+  return `<div class="absolute inset-x-0 bottom-0 z-30 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,.18)] p-4 pb-5 sheet-in" role="dialog" aria-label="Resumo do evento">
+    <div class="flex justify-center -mt-1 mb-2"><span class="w-10 h-1.5 rounded-full bg-slate-200"></span></div>
+    <button onclick="A.selectEvent(null)" class="absolute right-3 top-3 p-1.5 rounded-full hover:bg-slate-100" aria-label="Fechar"><i data-lucide="x" class="w-5 h-5"></i></button>
+    <div class="flex gap-3">${typeBubble(e)}<div class="min-w-0 flex-1 pr-6"><h2 class="font-bold leading-tight">${esc(e.titulo)}</h2>
+      <p class="text-xs text-slate-500 mt-0.5">${esc(e.bairro)} · ${fmtKm(distKm(e))} de você · ${rel(e.atualizado)}</p></div></div>
+    ${e.status === 'Em validação' ? '<div class="mt-3 text-xs rounded-lg bg-amber-50 text-amber-900 px-3 py-2 flex gap-2"><i data-lucide="hourglass" class="w-4 h-4 shrink-0"></i>Em verificação pela Defesa Civil — ainda não é um alerta oficial.</div>' : ''}
+    <div class="mt-3 flex flex-wrap items-center gap-2">${riskBadge(c.rl)}${seal(e)}${prioChip(c.P)}</div>
+    <p class="mt-2 text-xs text-slate-600"><b>Origem:</b> ${originSummary(e)}</p>
+    <div class="mt-3 grid grid-cols-2 gap-2">
+      <button onclick="A.openEvent('${e.id}')" class="py-3 rounded-xl bg-sky-700 text-white font-bold text-sm">Ver detalhes</button>
+      <button onclick="A.openTrust('${e.id}')" class="py-3 rounded-xl bg-sky-50 text-sky-800 font-bold text-sm ring-1 ring-sky-200 flex items-center justify-center gap-1.5"><i data-lucide="shield-check" class="w-4 h-4"></i>Origem dos dados</button>
+    </div></div>`;
+}
+
+/* ---------- T03 — Lista de alertas ---------- */
+function listData() {
+  let arr = S.events.filter((e) => ACTIVE.includes(e.status) || (S.showClosed && e.status === 'Encerrado'));
+  if (S.listTab === 'perto') arr = arr.filter((e) => distKm(e) <= 2);
+  if (S.listTab === 'areas') arr = arr.filter(reachesArea);
+  const f = S.listF;
+  if (f.tipo !== 'todos') arr = arr.filter((e) => e.tipo === f.tipo);
+  if (f.risco !== 'todos') arr = arr.filter((e) => calc(e).rl === f.risco);
+  if (f.conf !== 'todos') arr = arr.filter((e) => (f.conf === 'Validado' ? e.validado : calc(e).cl === f.conf));
+  arr.sort(S.listSort === 'prioridade'
+    ? (a, b) => (a.status === 'Encerrado') - (b.status === 'Encerrado') || calc(a).P - calc(b).P || distKm(a) - distKm(b)
+    : (a, b) => b.atualizado - a.atualizado);
+  return arr;
+}
+function alertCard(e) {
+  const c = calc(e), closed = e.status === 'Encerrado';
+  return `<article onclick="A.openEvent('${e.id}')" onkeydown="if(event.key==='Enter')A.openEvent('${e.id}')" tabindex="0" role="button" aria-label="${esc(e.titulo)}"
+    class="relative rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition ${closed ? 'opacity-60' : ''}">
+    <div class="absolute left-0 inset-y-0 w-1.5" style="background:${RISK[c.rl].hex}"></div>
+    <div class="p-3.5 pl-4">
+      <div class="flex items-start gap-3">${typeBubble(e, 'w-10 h-10')}
+        <div class="min-w-0 flex-1"><div class="flex items-center gap-1.5">${prioChip(c.P)}<h3 class="font-bold text-[15px] leading-tight truncate">${esc(e.titulo)}</h3></div>
+          <p class="text-xs text-slate-500 mt-0.5">${esc(e.bairro)} · ${fmtKm(distKm(e))} · ${rel(e.atualizado)}</p></div>
+        <i data-lucide="chevron-right" class="w-5 h-5 text-slate-300 mt-2"></i></div>
+      <div class="mt-2.5 flex flex-wrap items-center gap-1.5">${riskBadge(c.rl)}${seal(e)}${statusChip(e.status)}</div>
+      <p class="mt-2 text-[11px] text-slate-500 flex items-center gap-1"><i data-lucide="git-merge" class="w-3 h-3"></i>Origem: ${originSummary(e)}</p>
+    </div></article>`;
+}
+function viewT03() {
+  const arr = listData();
+  const tab = (k, l) => `<button role="tab" aria-selected="${S.listTab === k}" onclick="A.set('listTab','${k}')" class="flex-1 py-2 rounded-lg text-sm font-semibold ${S.listTab === k ? 'bg-white shadow text-slate-900' : 'text-slate-500'}">${l}</button>`;
+  const sel = (key, opts, label) => `<select aria-label="${label}" onchange="A.listFilter('${key}',this.value)" class="rounded-lg border border-slate-300 bg-white text-xs font-semibold px-2 py-1.5">${opts.map(([v, l]) => `<option value="${v}" ${S.listF[key] === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+  return `${pageHeader('Alertas', 'Ordenados por prioridade (RN07)')}
+  <div class="px-4"><div role="tablist" class="flex gap-1 p-1 rounded-xl bg-slate-100">${tab('perto', 'Perto de mim')}${tab('areas', 'Minhas áreas')}${tab('cidade', 'Toda a cidade')}</div>
+  <div class="mt-3 flex flex-wrap gap-1.5 items-center"><i data-lucide="sliders-horizontal" class="w-4 h-4 text-slate-500"></i>
+    ${sel('tipo', [['todos', 'Todos os tipos'], ...Object.keys(TIPOS).filter((k) => k !== 'outro').map((k) => [k, TIPOS[k].nome])], 'Filtrar tipo')}
+    ${sel('risco', [['todos', 'Qualquer risco'], ['Crítico', 'Crítico'], ['Alto', 'Alto'], ['Moderado', 'Moderado'], ['Baixo', 'Baixo']], 'Filtrar risco')}
+    ${sel('conf', [['todos', 'Qualquer confiança'], ['Validado', 'Validado'], ['Alta', 'Alta'], ['Média', 'Média'], ['Baixa', 'Baixa']], 'Filtrar confiança')}
+  </div>
+  <div class="mt-2 flex items-center justify-between text-xs"><span class="text-slate-500">${arr.length} resultado(s)</span>
+    <span class="flex gap-2"><button onclick="A.set('listSort','${S.listSort === 'prioridade' ? 'recentes' : 'prioridade'}')" class="font-semibold text-sky-700 flex items-center gap-1"><i data-lucide="arrow-up-down" class="w-3.5 h-3.5"></i>${S.listSort === 'prioridade' ? 'Prioridade' : 'Mais recentes'}</button>
+    <button onclick="A.set('showClosed',${!S.showClosed})" class="font-semibold text-slate-600">${S.showClosed ? 'Ocultar' : 'Ver'} encerrados</button></span></div>
+  <div class="mt-3 space-y-2.5 pb-6">${arr.length ? arr.map(alertCard).join('') : '<div class="text-center text-sm text-slate-500 py-10">Nenhum alerta com esses filtros.</div>'}</div></div>`;
+}
+
+/* ---------- T04 — Detalhe do alerta ---------- */
+function viewT04() {
+  const e = ev(S.selected) || S.events[0];
+  const c = calc(e), voted = S.voted[e.id];
+  const closed = ['Encerrado', 'Descartado'].includes(e.status);
+  return `${backHeader('Detalhe do alerta', 'back', `<button onclick="A.share()" class="p-2 rounded-full hover:bg-slate-100" aria-label="Compartilhar"><i data-lucide="share-2" class="w-5 h-5"></i></button>`)}
+  <div class="px-4 pt-3 pb-6 space-y-3 fade-in">
+    <div class="rounded-3xl p-4 text-white" style="background:linear-gradient(135deg, ${RISK[c.rl].hex}, #0f172a 140%)">
+      <div class="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest opacity-90">${typeIcon(e.tipo, 'w-4 h-4')}${TIPOS[e.tipo].nome} · ${prioChip(c.P)}</div>
+      <div class="mt-1 flex items-center gap-2"><span class="bg-white rounded-lg p-1">${shapeSvg(c.rl, 22)}</span><span class="text-3xl font-black tracking-tight">${c.rl.toUpperCase()}</span></div>
+      <h2 class="mt-1 text-lg font-bold leading-tight">${esc(e.titulo)}</h2>
+      <p class="text-sm opacity-90">${esc(e.local)} · ${esc(e.bairro)}</p>
+      <div class="mt-2 flex flex-wrap gap-2 items-center text-xs">${statusChip(e.status)}<span class="opacity-90">${rel(e.atualizado)} · ${fmtKm(distKm(e))} de você</span></div>
+    </div>
+    ${e.status === 'Em validação' ? '<div class="text-sm rounded-xl bg-amber-50 text-amber-900 px-3 py-2.5 flex gap-2"><i data-lucide="hourglass" class="w-5 h-5 shrink-0"></i><span><b>Em verificação.</b> A Defesa Civil está validando este registro. Ele ainda não gera notificação (RN07).</span></div>' : ''}
+
+    <!-- Origem e confiança (resumo) — leva à T05 -->
+    <section class="rounded-2xl border-2 border-sky-200 bg-sky-50/60 p-3.5" aria-labelledby="oc">
+      <div class="flex items-center justify-between"><h3 id="oc" class="text-sm font-bold flex items-center gap-1.5"><i data-lucide="fingerprint" class="w-4 h-4 text-sky-700"></i>Origem e confiança</h3>${seal(e, 'lg')}</div>
+      <ul class="mt-2.5 space-y-1.5">${e.fontes.slice(0, 4).map((f) => `<li class="flex items-center gap-2 text-xs"><span class="w-6 h-6 rounded-lg grid place-items-center ${srcColor[f.t]}"><i data-lucide="${srcIcon[f.t]}" class="w-3.5 h-3.5"></i></span><span class="font-semibold">${esc(f.nome)}</span><span class="text-slate-500 truncate">· ${srcLabel[f.t]}</span></li>`).join('')}</ul>
+      <button onclick="A.openTrust('${e.id}')" class="mt-3 w-full py-2.5 rounded-xl bg-sky-700 text-white text-sm font-bold flex items-center justify-center gap-1.5">Ver origem dos dados e cálculo<i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+    </section>
+
+    <div class="relative rounded-2xl overflow-hidden h-36 border border-slate-200 map-bg" aria-label="Mini-mapa do evento">
+      ${miniMap(e)}
+    </div>
+
+    <section class="rounded-2xl bg-white border border-slate-200 p-3.5"><h3 class="text-sm font-bold mb-1">O que está acontecendo</h3><p class="text-sm text-slate-700">${esc(e.resumo)}</p>
+      <div class="mt-2 grid grid-cols-2 gap-2 text-[11px]"><div class="rounded-lg bg-slate-50 p-2"><b>Severidade</b><br>${esc(e.sevTxt)}</div><div class="rounded-lg bg-slate-50 p-2"><b>Exposição</b><br>${esc(e.expTxt)}</div></div></section>
+
+    <section class="rounded-2xl bg-white border border-slate-200 p-3.5"><h3 class="text-sm font-bold mb-2 flex items-center gap-1.5"><i data-lucide="life-buoy" class="w-4 h-4 text-red-600"></i>O que fazer</h3>
+      <ul class="space-y-1.5">${(RECS[e.tipo] || RECS.outro).map((r) => `<li class="text-sm flex gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>${r}</li>`).join('')}</ul>
+      <div class="mt-3 grid grid-cols-2 gap-2"><a href="tel:199" class="py-2 rounded-xl bg-red-50 text-red-800 text-sm font-bold flex items-center justify-center gap-1.5"><i data-lucide="phone" class="w-4 h-4"></i>Defesa Civil 199</a><a href="tel:193" class="py-2 rounded-xl bg-red-50 text-red-800 text-sm font-bold flex items-center justify-center gap-1.5"><i data-lucide="phone" class="w-4 h-4"></i>Bombeiros 193</a></div></section>
+
+    <section class="rounded-2xl bg-white border border-slate-200 p-3.5"><h3 class="text-sm font-bold mb-2">Linha do tempo do evento</h3>
+      <ol class="relative border-l-2 border-slate-200 ml-1.5 space-y-2.5">${e.timeline.map((t) => `<li class="ml-4"><span class="absolute -left-[7px] w-3 h-3 rounded-full ${t.s === 'Descartado' ? 'bg-slate-400' : t.s === 'Encerrado' ? 'bg-emerald-500' : t.s === 'Alerta emitido' ? 'bg-red-500' : 'bg-sky-600'} ring-2 ring-white"></span>
+        <div class="text-xs"><span class="font-mono font-bold">${hhmm(t.h)}</span> · <b>${t.s}</b></div>${t.t ? `<div class="text-xs text-slate-500">${esc(t.t)}</div>` : ''}</li>`).join('')}</ol></section>
+
+    ${closed ? '' : `<section class="rounded-2xl bg-white border border-slate-200 p-3.5"><h3 class="text-sm font-bold">Você está vendo isso?</h3><p class="text-xs text-slate-500 mb-2">Sua resposta recalcula a corroboração (K) da confiança.</p>
+      <div class="grid grid-cols-2 gap-2">
+        <button ${voted ? 'disabled' : ''} onclick="A.vote('${e.id}','up')" class="py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 ${voted === 'up' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200'} disabled:opacity-80"><i data-lucide="thumbs-up" class="w-4 h-4"></i>${voted === 'up' ? 'Confirmado por você' : 'Também estou vendo'}</button>
+        <button ${voted ? 'disabled' : ''} onclick="A.vote('${e.id}','down')" class="py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 ${voted === 'down' ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-700 ring-1 ring-slate-200'} disabled:opacity-80"><i data-lucide="thumbs-down" class="w-4 h-4"></i>${voted === 'down' ? 'Contestado' : 'Não está acontecendo'}</button>
+      </div></section>`}
+  </div>`;
+}
+function miniMap(e) {
+  return `<div class="absolute inset-0 overflow-hidden" data-mini="${e.id}"><div class="absolute mini-inner" style="width:300%;aspect-ratio:360/640">${mapBase({ areas: true, events: [e] })}${marker(e, 'A.noop')}${userDot()}</div></div>`;
+}
+
+/* ---------- T05 — Origem e nível de confiança do dado ---------- */
+function viewT05() {
+  const e = ev(S.selected) || S.events[0];
+  const c = calc(e), s = sealInfo(e);
+  const r = 70, circ = 2 * Math.PI * r, off = circ * (1 - c.C / 100);
+  const gColor = e.validado ? '#4338ca' : c.cl === 'Alta' ? '#0369a1' : c.cl === 'Média' ? '#38bdf8' : '#94a3b8';
+  const fac = [
+    ['F', 'Confiabilidade da fonte', 0.4, e.F, e.fTxt, 'radio-tower'],
+    ['K', 'Corroboração', 0.3, c.K, e.oficial ? 'Fonte oficial: corroboração máxima (K = 100)' : `${e.indep} fonte(s) independente(s) confirmam${e.contest ? ` · ${e.contest} contestação(ões) (−15 cada)` : ' · 0 contestações'}`, 'git-merge'],
+    ['A', 'Atualidade', 0.2, e.A, e.aTxt, 'clock'],
+    ['Q', 'Qualidade do registro', 0.1, e.Q, e.qTxt, 'scan-search'],
+  ];
+  const matrixRow = (lvl) => `<tr><th class="text-left py-1 pr-1 font-semibold whitespace-nowrap"><span class="inline-flex items-center gap-1">${shapeSvg(lvl, 10)}${lvl}</span></th>${['Alta', 'Média', 'Baixa'].map((cl) => { const hit = lvl === c.rl && cl === c.cl; return `<td class="text-center py-1"><span class="inline-block min-w-[34px] rounded-md px-1 py-0.5 font-mono font-bold ${hit ? 'bg-slate-900 text-white ring-2 ring-sky-400' : 'bg-slate-100 text-slate-500'}">P${MATRIX[lvl][cl]}</span></td>`; }).join('')}</tr>`;
+  return `${backHeader('Origem e confiança do dado')}
+  <div class="px-4 pt-3 pb-8 space-y-3 fade-in">
+    <div class="text-xs text-slate-500 flex items-center gap-1.5">${typeIcon(e.tipo, 'w-4 h-4')}<span class="font-semibold text-slate-700 truncate">${esc(e.titulo)}</span></div>
+    <section class="rounded-3xl bg-gradient-to-b from-sky-50 to-white border border-sky-100 p-4 text-center">
+      <div class="relative mx-auto w-44 h-44">
+        <svg viewBox="0 0 180 180" class="w-44 h-44 -rotate-90" aria-hidden="true"><circle cx="90" cy="90" r="${r}" fill="none" stroke="#e2e8f0" stroke-width="16"/>
+          <circle class="gauge-arc" id="gaugeArc" cx="90" cy="90" r="${r}" fill="none" stroke="${gColor}" stroke-width="16" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${circ}" data-off="${off}"/></svg>
+        <div class="absolute inset-0 grid place-items-center"><div><div class="text-5xl font-black tracking-tight" aria-label="Nota de confiança ${c.C} de 100">${c.C}</div><div class="text-xs text-slate-500 font-semibold">de 100</div></div></div>
+      </div>
+      <div class="mt-2 flex justify-center">${seal(e, 'lg')}</div>
+      <p class="mt-2 text-[11px] text-slate-500">Alta ≥ 75 · Média 50–74 · Baixa &lt; 50 · Validado por agente = 100</p>
+    </section>
+
+    ${e.validado ? `<div class="rounded-2xl bg-indigo-50 border border-indigo-200 p-3 text-sm text-indigo-900 flex gap-2"><i data-lucide="badge-check" class="w-5 h-5 shrink-0"></i><span><b>Validado por agente da Defesa Civil</b> às ${hhmm(e.validadoEm)}. Por regra (RN04), a confiança passa a 100. O nome do agente não é exibido ao público.</span></div>` : ''}
+
+    <section class="rounded-2xl bg-white border border-slate-200 p-4">
+      <h3 class="text-sm font-bold">Como a nota foi calculada</h3>
+      <p class="text-[11px] text-slate-500 mb-3">C = 0,4·F + 0,3·K + 0,2·A + 0,1·Q ${e.validado ? '(substituído por 100 após validação humana)' : ''}</p>
+      <div class="space-y-3">${fac.map(([k, n, w, v, txt, ic]) => `<div>
+        <div class="flex items-center justify-between text-xs"><span class="font-semibold flex items-center gap-1.5"><span class="w-5 h-5 rounded-md bg-slate-900 text-white text-[10px] font-mono font-bold grid place-items-center">${k}</span>${n} <span class="text-slate-400 font-normal">· peso ${w * 100}%</span></span>
+          <span class="font-mono"><b>${v}</b> <span class="text-slate-400">→ +${(w * v).toFixed(1).replace('.', ',')} pts</span></span></div>
+        <div class="mt-1 h-2.5 rounded-full bg-slate-100 overflow-hidden"><div class="bar-fill h-full rounded-full" style="width:0%;background:${gColor}" data-w="${v}"></div></div>
+        <details class="mt-0.5"><summary class="text-[11px] text-sky-700 cursor-pointer select-none">Por quê?</summary><p class="text-[11px] text-slate-600 mt-0.5 flex gap-1"><i data-lucide="${ic}" class="w-3 h-3 shrink-0 mt-0.5"></i>${esc(txt)}</p></details></div>`).join('')}</div>
+      <div class="mt-3 rounded-xl bg-slate-900 text-slate-100 font-mono text-[11px] px-3 py-2 overflow-x-auto whitespace-nowrap">0,4×${e.F} + 0,3×${c.K} + 0,2×${e.A} + 0,1×${e.Q} = <b class="text-white">${Math.round(0.4 * e.F + 0.3 * c.K + 0.2 * e.A + 0.1 * e.Q)}</b>${e.validado ? ' → <b class="text-indigo-300">100 (validado)</b>' : ''}</div>
+    </section>
+
+    <section class="rounded-2xl bg-white border border-slate-200 p-4">
+      <h3 class="text-sm font-bold mb-2">De onde veio a informação <span class="text-slate-400 font-normal">(${e.fontes.length})</span></h3>
+      <ul class="space-y-2">${e.fontes.map((f) => `<li class="rounded-xl border ${f.principal ? 'border-sky-300 bg-sky-50/50' : 'border-slate-200'} p-3 flex gap-3">
+        <span class="w-10 h-10 rounded-xl grid place-items-center shrink-0 ${srcColor[f.t]}"><i data-lucide="${srcIcon[f.t]}" class="w-5 h-5"></i></span>
+        <div class="min-w-0"><div class="flex flex-wrap items-center gap-1.5"><span class="font-bold text-sm">${esc(f.nome)}</span>${f.principal ? '<span class="text-[10px] font-bold uppercase bg-sky-700 text-white px-1.5 rounded">Principal</span>' : ''}${f.minha ? '<span class="text-[10px] font-bold uppercase bg-violet-600 text-white px-1.5 rounded">Você</span>' : ''}</div>
+          <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">${srcLabel[f.t]}</div>
+          <p class="text-xs text-slate-600 mt-0.5">${esc(f.det)}</p><p class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i>${hhmm(f.hora)} · ${rel(f.hora)}</p></div></li>`).join('')}</ul>
+      ${e.contest ? `<p class="mt-2 text-xs text-slate-600 flex gap-1.5"><i data-lucide="thumbs-down" class="w-4 h-4"></i>${e.contest} morador(es) contestaram este evento.</p>` : ''}
+    </section>
+
+    <section class="rounded-2xl bg-white border border-slate-200 p-4">
+      <h3 class="text-sm font-bold">Por que este evento é ${PRIO[c.P].txt}?</h3>
+      <p class="text-[11px] text-slate-500 mb-2">Risco ${c.rl} (R = ${e.S} × ${e.E} = ${c.R}) × Confiança ${c.cl} → ${PRIO[c.P].desc}.</p>
+      <table class="w-full text-[11px]"><thead><tr class="text-slate-500"><th></th><th class="font-semibold">Alta</th><th class="font-semibold">Média</th><th class="font-semibold">Baixa</th></tr></thead><tbody>${['Crítico', 'Alto', 'Moderado', 'Baixo'].map(matrixRow).join('')}</tbody></table>
+      <p class="mt-2 text-[11px] text-slate-600 flex gap-1"><i data-lucide="info" class="w-3 h-3 shrink-0 mt-0.5"></i>Regra de ouro: confiança Baixa nunca gera notificação automática.</p>
+    </section>
+
+    <div class="rounded-2xl bg-slate-50 p-3 text-[11px] text-slate-600 flex gap-2"><i data-lucide="eye-off" class="w-4 h-4 shrink-0"></i>Dados pessoais de quem relatou não são exibidos (LGPD). Autores são pseudonimizados, fotos têm rostos e placas desfocados e a posição pública é arredondada em ~100 m.</div>
+  </div>`;
+}
+
+/* ---------- T06 — Central de notificações ---------- */
+function viewT06() {
+  if (S.visitor) return pageHeader('Notificações') + visitorLock('receber notificações');
+  const tabs = [['todas', 'Todas'], ['alerta', 'Alertas'], ['relato', 'Meus relatos'], ['sistema', 'Sistema']];
+  const arr = S.notifs.filter((n) => S.notifTab === 'todas' || n.cat === S.notifTab);
+  const unread = S.notifs.filter((n) => !n.lida).length;
+  const item = (n) => {
+    const e = n.eventId && ev(n.eventId); const c = e && calc(e);
+    const icon = n.cat === 'relato' ? 'message-square-check' : n.cat === 'sistema' ? 'info' : TIPOS[e ? e.tipo : 'outro'].icon;
+    const bg = c ? `background:${RISK[c.rl].hex};color:${RISK[c.rl].ink}` : n.cat === 'relato' ? 'background:#7c3aed;color:#fff' : 'background:#e2e8f0;color:#334155';
+    return `<li><button onclick="A.openNotif('${n.id}')" class="w-full text-left px-4 py-3 flex gap-3 ${n.lida ? 'bg-white' : 'bg-sky-50/70'} hover:bg-slate-50 border-b border-slate-100">
+      <span class="w-10 h-10 rounded-xl grid place-items-center shrink-0" style="${bg}"><i data-lucide="${icon}" class="w-5 h-5"></i></span>
+      <span class="flex-1 min-w-0"><span class="flex items-center gap-2"><span class="font-bold text-sm ${n.lida ? 'text-slate-700' : ''} truncate">${esc(n.titulo)}</span>${!n.lida ? '<span class="w-2 h-2 rounded-full bg-sky-600 shrink-0" aria-label="não lida"></span>' : ''}</span>
+        <span class="block text-xs text-slate-600 mt-0.5">${esc(n.texto)}</span>
+        <span class="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">${hhmm(n.hora)}${n.upd ? ` · <span class="text-sky-700 font-semibold">+${n.upd} atualizações agrupadas (RN08)</span>` : ''}${e && n.cat === 'alerta' ? ' · ' + riskBadge(c.rl) : ''}</span></span></button></li>`;
+  };
+  return `${pageHeader('Notificações', `${unread} não lida(s)`, `<button onclick="A.go('T10')" class="p-2 rounded-full hover:bg-slate-100" aria-label="Preferências de notificação"><i data-lucide="settings" class="w-5 h-5"></i></button>`)}
+  <div class="px-4 flex gap-1.5 overflow-x-auto no-scrollbar" role="tablist">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${S.notifTab === k}" onclick="A.set('notifTab','${k}')" class="shrink-0 px-3.5 py-1.5 rounded-full text-sm font-semibold ${S.notifTab === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}">${l}</button>`).join('')}</div>
+  <div class="px-4 mt-2 flex justify-end"><button onclick="A.readAll()" class="text-xs font-semibold text-sky-700 flex items-center gap-1"><i data-lucide="check-check" class="w-4 h-4"></i>Marcar todas como lidas</button></div>
+  <ul class="mt-1">${arr.length ? arr.map(item).join('') : '<li class="text-center text-sm text-slate-500 py-10">Nada por aqui.</li>'}</ul>
+  <p class="px-5 py-4 text-[11px] text-slate-500">Você recebe no máximo 3 notificações por hora, exceto alertas P1. Horário de silêncio: ${S.prefs.silencio ? `${S.prefs.de}–${S.prefs.ate} (exceto Crítico)` : 'desativado'}.</p>`;
+}
+
+/* ---------- T07 — Registro comunitário de ocorrência ---------- */
+function viewT07() {
+  if (S.visitor) return backHeader('Relatar ocorrência', 'T02') + visitorLock('relatar ocorrências');
+  const f = S.t07;
+  const steps = ['Tipo', 'Local', 'Detalhes'];
+  const stepper = `<ol class="flex items-center gap-2 px-4 pt-3" aria-label="Etapas">${steps.map((s, i) => `<li class="flex-1"><div class="h-1.5 rounded-full ${i + 1 <= f.step ? 'bg-sky-600' : 'bg-slate-200'}"></div><div class="mt-1 text-[11px] font-semibold ${i + 1 === f.step ? 'text-sky-700' : 'text-slate-400'}">${i + 1}. ${s}</div></li>`).join('')}</ol>`;
+  let body = '';
+  if (f.step === 1) {
+    body = `<h2 class="text-lg font-bold">O que está acontecendo?</h2><p class="text-xs text-slate-500 mb-3">Toque em uma opção.</p>
+    <div class="grid grid-cols-2 gap-2.5">${Object.keys(TIPOS).map((k) => `<button onclick="A.t07Tipo('${k}')" class="rounded-2xl border-2 ${f.tipo === k ? 'border-sky-600 bg-sky-50' : 'border-slate-200 bg-white'} p-4 text-left hover:border-sky-400">
+      <span class="w-11 h-11 rounded-xl bg-slate-900 text-white grid place-items-center">${typeIcon(k, 'w-6 h-6')}</span><span class="block mt-2 font-bold text-sm">${TIPOS[k].nome}</span></button>`).join('')}</div>`;
+  } else if (f.step === 2) {
+    const lat = (-23.470 - f.pos.y * 0.000135).toFixed(4).replace('.', ','), lng = (-46.480 + f.pos.x * 0.000147).toFixed(4).replace('.', ',');
+    const nb = Object.entries(BAIRROS).sort((a, b) => distU(a[1], f.pos) - distU(b[1], f.pos))[0][0];
+    body = `<h2 class="text-lg font-bold">Onde?</h2><p class="text-xs text-slate-500 mb-2">Usamos seu GPS. Toque no mapa para ajustar o pino.</p>
+    <div id="pinMap" class="relative h-64 rounded-2xl overflow-auto no-scrollbar border border-slate-200 map-bg">
+      <div class="relative cursor-crosshair" style="width:200%;aspect-ratio:360/640" onclick="A.t07Pin(event,this)">${mapBase({ areas: false })}
+        <span class="absolute -translate-x-1/2 -translate-y-full pointer-events-none" style="left:${(f.pos.x / 360) * 100}%;top:${(f.pos.y / 640) * 100}%"><svg width="34" height="44" viewBox="0 0 24 32" class="drop-shadow-lg" aria-label="Local do relato"><path d="M12 0C5.4 0 0 5.3 0 11.9 0 20.8 12 32 12 32s12-11.2 12-20.1C24 5.3 18.6 0 12 0z" fill="#dc2626" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="12" r="4.5" fill="#fff"/></svg></span>
+        ${userDot()}</div></div>
+    <div class="mt-2 rounded-xl bg-slate-50 p-3 text-xs space-y-0.5"><div class="flex items-center gap-1.5 font-semibold"><i data-lucide="navigation" class="w-3.5 h-3.5 text-sky-700"></i>Próximo a ${nb}</div>
+      <div class="text-slate-500 font-mono">${lat}, ${lng} · precisão ± 15 m</div>
+      <div class="text-slate-500 flex items-center gap-1"><i data-lucide="eye-off" class="w-3 h-3"></i>No mapa público seu relato aparece arredondado em ~100 m.</div></div>`;
+  } else {
+    body = `<h2 class="text-lg font-bold">Detalhes <span class="text-sm font-normal text-slate-400">(opcional)</span></h2>
+    <div class="mt-2"><div class="text-sm font-semibold mb-1">Intensidade</div><div class="grid grid-cols-3 gap-2">${[['leve', 'Leve'], ['moderada', 'Moderada'], ['grave', 'Grave']].map(([k, l]) => `<button onclick="A.t07Set('intensidade','${k}')" aria-pressed="${f.intensidade === k}" class="py-2.5 rounded-xl text-sm font-bold ${f.intensidade === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}">${l}</button>`).join('')}</div>
+      <p class="text-[11px] text-slate-500 mt-1">Define a severidade inicial: Leve = S2, Moderada = S3, Grave = S4 (RN01).</p></div>
+    <div class="mt-3"><div class="text-sm font-semibold mb-1">Foto</div>${f.foto
+      ? `<div class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-2"><div class="w-16 h-16 rounded-lg blur-photo"></div><div class="text-xs flex-1"><b>foto_relato.jpg</b><br><span class="text-emerald-700 flex items-center gap-1"><i data-lucide="scan-face" class="w-3.5 h-3.5"></i>Rostos e placas desfocados</span></div><button onclick="A.t07Set('foto',false)" class="p-2" aria-label="Remover foto"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`
+      : `<button onclick="A.t07Set('foto',true)" class="w-full py-5 rounded-xl border-2 border-dashed border-slate-300 text-sm font-semibold text-slate-600 flex flex-col items-center gap-1"><i data-lucide="camera" class="w-6 h-6"></i>Adicionar foto<span class="text-[11px] font-normal">Rostos e placas serão desfocados automaticamente</span></button>`}</div>
+    <div class="mt-3"><label for="desc" class="text-sm font-semibold">Descrição curta</label><textarea id="desc" maxlength="140" rows="2" oninput="S.t07.desc=this.value;$('descCount').textContent=this.value.length" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Ex.: água cobrindo a calçada">${esc(f.desc)}</textarea><div class="text-right text-[11px] text-slate-400"><span id="descCount">${f.desc.length}</span>/140</div></div>`;
+  }
+  const canNext = f.step === 1 ? !!f.tipo : true;
+  return `${backHeader('Relatar ocorrência', 'T02')}${stepper}
+  <div class="px-4 pt-4 pb-4 fade-in">${body}</div>
+  <div class="sticky bottom-0 bg-white border-t border-slate-100 p-3 flex gap-2">
+    ${f.step > 1 ? `<button onclick="A.t07Step(-1)" class="px-4 py-3 rounded-xl bg-slate-100 font-semibold text-sm">Voltar</button>` : `<button onclick="A.go('T02')" class="px-4 py-3 rounded-xl bg-slate-100 font-semibold text-sm">Cancelar</button>`}
+    ${f.step === 2 ? `<button onclick="A.submitReport()" class="px-3 py-3 rounded-xl bg-slate-900 text-white font-semibold text-sm">Enviar agora</button>` : ''}
+    ${f.step < 3 ? `<button ${canNext ? '' : 'disabled'} onclick="A.t07Step(1)" class="flex-1 py-3 rounded-xl bg-sky-700 text-white font-bold text-sm disabled:opacity-40">${f.step === 2 ? 'Adicionar detalhes' : 'Continuar'}</button>`
+      : `<button onclick="A.submitReport()" class="flex-1 py-3 rounded-xl bg-sky-700 text-white font-bold text-sm flex items-center justify-center gap-1.5"><i data-lucide="send" class="w-4 h-4"></i>Enviar relato</button>`}
+  </div>
+  <p class="px-4 pb-4 text-[11px] text-slate-500 flex items-center gap-1"><i data-lucide="user-x" class="w-3 h-3"></i>Seu nome não aparece para outros usuários.</p>`;
+}
+
+/* ---------- T08 — Confirmação e acompanhamento do relato ---------- */
+function viewT08() {
+  if (S.visitor) return backHeader('Meu relato', 'T02') + visitorLock('acompanhar seus relatos');
+  const r = S.reports.find((x) => x.id === S.lastReport);
+  const hist = `<section class="rounded-2xl bg-white border border-slate-200 p-4"><h3 class="text-sm font-bold mb-2">Meus relatos</h3><ul class="divide-y divide-slate-100">${S.reports.map((x) => {
+    const e = x.eventId && ev(x.eventId); const st = e ? e.status : x.statusFixo;
+    return `<li class="py-2.5 flex items-center gap-3"><span class="w-9 h-9 rounded-xl bg-slate-100 grid place-items-center">${typeIcon(x.tipo, 'w-4 h-4')}</span><div class="flex-1 min-w-0"><div class="text-sm font-semibold truncate">${TIPOS[x.tipo].nome} · ${esc(x.local)}</div><div class="text-[11px] text-slate-500 font-mono">#${x.protocolo} · ${x.data}</div></div>${statusChip(st)}</li>`;
+  }).join('')}</ul></section>`;
+  if (!r) {
+    return `${backHeader('Meus relatos', 'T02')}<div class="p-4 space-y-3"><div class="rounded-2xl bg-sky-50 p-4 text-sm text-sky-900">Você ainda não enviou um relato nesta sessão.<button onclick="A.go('T07')" class="mt-3 w-full py-2.5 rounded-xl bg-sky-700 text-white font-bold">Registrar ocorrência</button></div>${hist}</div>`;
+  }
+  const e = ev(r.eventId);
+  const st = e.status;
+  const idx = st === 'Descartado' ? -1 : STATES.indexOf(st);
+  const discardedAt = st === 'Descartado' ? Math.max(1, e.timeline.filter((t) => STATES.includes(t.s)).length - 1) : null;
+  const tlTime = (s) => { if (s === 'Reportado' && r.merged) return hhmm(r.criadoMin); const t = [...e.timeline].reverse().find((x) => x.s === s); return t ? hhmm(t.h) : ''; };
+  const labels = { 'Reportado': 'Recebido', 'Em validação': 'Em validação', 'Confirmado': 'Confirmado', 'Alerta emitido': 'Alerta emitido', 'Em monitoramento': 'Em monitoramento', 'Encerrado': 'Encerrado' };
+  const descs = { 'Reportado': 'Seu relato chegou e foi pseudonimizado.', 'Em validação': 'Cruzando com sensores e outros relatos; agente da Defesa Civil revisa.', 'Confirmado': 'Ocorrência confirmada.', 'Alerta emitido': 'Vizinhos na área foram avisados.', 'Em monitoramento': 'Acompanhando a evolução.', 'Encerrado': 'Situação normalizada.' };
+  const stepItem = (s, i) => {
+    let state = 'todo';
+    if (st === 'Descartado') state = i <= 1 ? 'done' : 'todo';
+    else if (i < idx || (i === idx && s === 'Encerrado')) state = 'done';
+    else if (i === idx) state = 'current';
+    if (s === 'Alerta emitido' && e.semAlerta && idx > 3) state = 'skip';
+    const dot = state === 'done' ? 'bg-emerald-500 text-white' : state === 'current' ? 'bg-sky-600 text-white ring-4 ring-sky-100' : state === 'skip' ? 'bg-slate-200 text-slate-400' : 'bg-white border-2 border-slate-300 text-slate-400';
+    const icon = state === 'done' ? 'check' : state === 'current' ? 'loader' : state === 'skip' ? 'minus' : 'circle';
+    return `<li class="relative pl-10 pb-4 last:pb-0"><span class="absolute left-0 top-0 w-7 h-7 rounded-full grid place-items-center ${dot}"><i data-lucide="${icon}" class="w-4 h-4 ${state === 'current' ? 'animate-spin' : ''}"></i></span>
+      ${i < STATES.length - 1 ? `<span class="absolute left-[13px] top-7 bottom-0 w-0.5 ${state === 'done' ? 'bg-emerald-400' : 'bg-slate-200'}"></span>` : ''}
+      <div class="text-sm font-bold ${state === 'todo' || state === 'skip' ? 'text-slate-400' : ''}">${labels[s]} <span class="font-mono text-[11px] text-slate-400 font-normal">${state === 'done' || state === 'current' ? tlTime(s) : ''}</span></div>
+      <div class="text-xs ${state === 'todo' || state === 'skip' ? 'text-slate-400' : 'text-slate-600'}">${state === 'skip' ? 'Não aplicável: prioridade P4/P5 não gera push' : descs[s]}</div></li>`;
+  };
+  return `${backHeader('Meu relato', 'T02')}
+  <div class="p-4 space-y-3 fade-in">
+    <div class="rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-5 text-center">
+      <span class="mx-auto w-14 h-14 rounded-full bg-white/20 grid place-items-center"><i data-lucide="${st === 'Descartado' ? 'x' : 'check'}" class="w-8 h-8"></i></span>
+      <h2 class="mt-2 text-xl font-extrabold">${st === 'Descartado' ? 'Relato analisado' : 'Relato recebido!'}</h2>
+      <p class="text-sm opacity-90">Protocolo <span class="font-mono font-bold">#${r.protocolo}</span></p>
+      ${r.merged ? `<p class="mt-2 text-xs bg-white/15 rounded-lg px-3 py-1.5 inline-flex items-center gap-1.5"><i data-lucide="git-merge" class="w-3.5 h-3.5"></i>Seu relato se juntou a ${e.fontes.filter((f) => !f.minha && f.t !== 'validacao').length} outra(s) fonte(s) sobre o mesmo local</p>` : ''}
+    </div>
+    <section class="rounded-2xl bg-white border border-slate-200 p-4">
+      <div class="flex items-center justify-between mb-3"><h3 class="text-sm font-bold">Status (ciclo de vida do evento)</h3>${statusChip(st)}</div>
+      ${st === 'Descartado' ? `<div class="mb-3 rounded-xl bg-slate-100 p-3 text-xs text-slate-700"><b>Descartado:</b> ${esc(e.motivo || 'não confirmado')}. Obrigado por colaborar — relatos ajudam a calibrar o sistema.</div>` : ''}
+      <ol>${STATES.map(stepItem).join('')}</ol>
+    </section>
+    <section class="rounded-2xl bg-white border border-slate-200 p-4 flex items-center justify-between gap-2"><div><div class="text-xs text-slate-500">Confiança atual do evento</div><div class="text-sm font-semibold">${esc(e.titulo)}</div></div>${seal(e)}</section>
+    <div class="grid grid-cols-2 gap-2"><button onclick="A.selectEvent('${e.id}',true)" class="py-3 rounded-xl bg-slate-100 font-bold text-sm flex items-center justify-center gap-1.5"><i data-lucide="map" class="w-4 h-4"></i>Ver no mapa</button>
+      <button onclick="A.openEvent('${e.id}')" class="py-3 rounded-xl bg-sky-700 text-white font-bold text-sm">Ver alerta</button></div>
+    ${hist}
+  </div>`;
+}
+
+/* ---------- T10 — Perfil, áreas monitoradas e privacidade ---------- */
+function viewT10() {
+  if (S.visitor) return pageHeader('Perfil') + visitorLock('configurar áreas e privacidade');
+  const p = S.prefs;
+  const row = (icon, title, sub, right, extra = '') => `<div class="flex items-center gap-3 py-3 ${extra}"><span class="w-9 h-9 rounded-xl bg-slate-100 grid place-items-center shrink-0"><i data-lucide="${icon}" class="w-4 h-4"></i></span><div class="flex-1 min-w-0"><div class="text-sm font-semibold">${title}</div>${sub ? `<div class="text-xs text-slate-500">${sub}</div>` : ''}</div>${right}</div>`;
+  return `${pageHeader('Perfil e privacidade')}
+  <div class="px-4 pb-8 space-y-3">
+    <section class="rounded-2xl bg-white border border-slate-200 p-4 flex items-center gap-3"><span class="w-12 h-12 rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 text-white grid place-items-center font-bold">MS</span>
+      <div class="flex-1"><div class="font-bold">${esc(S.user.nome)}</div><div class="text-xs text-slate-500">${esc(S.user.tel)} · ID público <span class="font-mono">${S.user.pseudo}</span></div></div></section>
+
+    <section class="rounded-2xl bg-white border border-slate-200 px-4 py-2"><div class="flex items-center justify-between pt-2"><h2 class="text-sm font-bold">Minhas áreas monitoradas</h2><button onclick="A.addArea()" class="text-xs font-bold text-sky-700 flex items-center gap-1"><i data-lucide="plus" class="w-3.5 h-3.5"></i>Adicionar</button></div>
+      <div class="divide-y divide-slate-100">${S.areas.map((a) => row(a.icon, a.nome, `${esc(a.desc)}`, `<select aria-label="Raio de ${a.nome}" onchange="A.areaRaio('${a.id}',this.value)" class="text-xs rounded-lg border border-slate-300 px-1.5 py-1 mr-2">${[0.5, 1, 2].map((r) => `<option value="${r}" ${a.raio === r ? 'selected' : ''}>${r === 0.5 ? '500 m' : r + ' km'}</option>`).join('')}</select>${toggle(a.ativo, `A.areaToggle('${a.id}')`, a.nome)}`)).join('')}</div></section>
+
+    <section class="rounded-2xl bg-white border border-slate-200 p-4"><h2 class="text-sm font-bold mb-2">Quais riscos quero receber</h2>
+      <div class="flex flex-wrap gap-1.5">${Object.keys(p.tipos).map((k) => `<button onclick="A.prefTipo('${k}')" aria-pressed="${p.tipos[k]}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${p.tipos[k] ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}">${typeIcon(k, 'w-3.5 h-3.5')}${TIPOS[k].nome}</button>`).join('')}</div>
+      <div class="mt-3 flex items-center justify-between"><label for="nivelMin" class="text-sm">Nível mínimo para push</label><select id="nivelMin" onchange="S.prefs.nivelMin=this.value;A.toast('Preferência salva')" class="text-sm rounded-lg border border-slate-300 px-2 py-1">${['Baixo', 'Moderado', 'Alto', 'Crítico'].map((l) => `<option ${p.nivelMin === l ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="mt-3 flex items-center justify-between"><div><div class="text-sm">Horário de silêncio</div><div class="text-[11px] text-slate-500">Alertas Críticos (P1) sempre tocam</div></div>${toggle(p.silencio, 'A.prefSil()', 'Horário de silêncio')}</div>
+      ${p.silencio ? `<div class="mt-2 flex items-center gap-2 text-sm"><input type="time" value="${p.de}" onchange="S.prefs.de=this.value" class="rounded-lg border border-slate-300 px-2 py-1"> até <input type="time" value="${p.ate}" onchange="S.prefs.ate=this.value" class="rounded-lg border border-slate-300 px-2 py-1"></div>` : ''}
+      <div class="mt-3 grid grid-cols-3 gap-2 text-xs">${[['push', 'Push', 'smartphone'], ['email', 'E-mail', 'mail'], ['sms', 'SMS (P1)', 'message-square']].map(([k, l, ic]) => `<button onclick="A.prefCanal('${k}')" aria-pressed="${p.canais[k]}" class="py-2 rounded-xl font-semibold flex flex-col items-center gap-1 ${p.canais[k] ? 'bg-sky-700 text-white' : 'bg-slate-100 text-slate-500'}"><i data-lucide="${ic}" class="w-4 h-4"></i>${l}</button>`).join('')}</div>
+    </section>
+
+    <section class="rounded-2xl bg-white border-2 border-sky-200 px-4 py-2"><h2 class="text-sm font-bold pt-2 flex items-center gap-1.5"><i data-lucide="shield-check" class="w-4 h-4 text-sky-700"></i>Privacidade e seus direitos (LGPD)</h2>
+      <div class="divide-y divide-slate-100">
+        ${row('map-pin', 'Localização em tempo real', 'Consentimento opcional', toggle(S.consents.loc, "A.consent('loc')", 'Localização'))}
+        ${row('bell', 'Notificações push', 'Consentimento', toggle(S.consents.push, "A.consent('push')", 'Push'))}
+        ${row('bar-chart-3', 'Uso estatístico anonimizado', 'Consentimento opcional', toggle(S.consents.stats, "A.consent('stats')", 'Estatística'))}
+        ${row('history', 'Histórico de localização', 'Guardado por no máximo 30 dias', '<span class="text-xs font-semibold text-emerald-700">30 dias</span>')}
+        ${row('download', 'Baixar meus dados', 'Portabilidade · arquivo JSON', '<button onclick="A.exportData()" class="text-xs font-bold text-sky-700">Baixar</button>')}
+        ${row('pencil', 'Corrigir meus dados', 'Nome e telefone', '<button onclick="A.editData()" class="text-xs font-bold text-sky-700">Editar</button>')}
+        ${row('trash-2', 'Excluir minha conta', 'Remove dados pessoais em até 15 dias', '<button onclick="A.deleteAccount()" class="text-xs font-bold text-red-600">Excluir</button>')}
+        ${row('mail', 'Encarregado de dados (DPO)', 'dpo@alertavivo.gov.br', '')}
+      </div></section>
+    <button onclick="A.logout()" class="w-full py-3 rounded-xl bg-slate-100 font-semibold text-sm flex items-center justify-center gap-2"><i data-lucide="log-out" class="w-4 h-4"></i>Sair</button>
+  </div>`;
+}
+
+/* =====================================================================
+   T09 — CONSOLE OPERACIONAL (Defesa Civil / Operador)
+   ===================================================================== */
+function viewT09() {
+  const isDef = S.cRole === 'defesa';
+  const queue = S.events.filter((e) => ['Em validação', 'Confirmado'].includes(e.status)).sort((a, b) => calc(a).P - calc(b).P || (a.filaDesde || 0) - (b.filaDesde || 0));
+  const active = S.events.filter((e) => ['Alerta emitido', 'Em monitoramento'].includes(e.status));
+  const tabs = [['fila', 'Fila de validação', 'list-checks', queue.length, isDef], ['ativos', 'Eventos ativos', 'activity', active.length, isDef], ['interrupcoes', 'Interrupções', 'zap-off', null, true], ['indicadores', 'Indicadores', 'bar-chart-3', null, true], ['auditoria', 'Auditoria', 'file-lock', null, isDef]];
+  if (!tabs.find((t) => t[0] === S.cTab)[4]) S.cTab = 'interrupcoes';
+  let body = '';
+  if (S.cTab === 'fila') body = consoleFila(queue);
+  else if (S.cTab === 'ativos') body = consoleAtivos(active);
+  else if (S.cTab === 'interrupcoes') body = consoleInterrupcoes();
+  else if (S.cTab === 'indicadores') body = consoleIndicadores();
+  else body = consoleAuditoria();
+  return `<div class="rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden fade-in">
+    <div class="bg-slate-900 text-white px-5 py-3 flex flex-wrap items-center gap-3">
+      <span class="w-9 h-9 rounded-xl bg-sky-600 grid place-items-center"><i data-lucide="shield-alert" class="w-5 h-5"></i></span>
+      <div><div class="font-extrabold leading-tight">Alerta Vivo · Console Operacional</div><div class="text-[11px] text-slate-400">Sala de situação · Zona Leste · <span id="consoleClock" class="font-mono">18:14</span> · dados ao vivo <span id="syncStamp2">há 40 s</span></div></div>
+      <div class="ml-auto flex items-center gap-2">
+        <label class="text-[11px] text-slate-400" for="roleSel">Perfil (RBAC)</label>
+        <select id="roleSel" onchange="A.cRole(this.value)" class="bg-slate-800 text-sm rounded-lg px-2 py-1.5 border border-slate-700"><option value="defesa" ${isDef ? 'selected' : ''}>Sgt. Ricardo Almeida — Defesa Civil</option><option value="operador" ${!isDef ? 'selected' : ''}>Juliana Torres — Operadora de energia</option></select>
+        <span class="text-[11px] px-2 py-1 rounded-md bg-emerald-600/20 text-emerald-300 font-semibold flex items-center gap-1"><i data-lucide="key-round" class="w-3 h-3"></i>MFA ativo</span>
+        <button onclick="A.go('T06')" class="text-sm px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 flex items-center gap-1.5"><i data-lucide="smartphone" class="w-4 h-4"></i>App do cidadão</button>
+      </div>
+    </div>
+    <nav class="flex gap-1 px-4 pt-3 border-b border-slate-200 overflow-x-auto" role="tablist">${tabs.map(([k, l, ic, n, ok]) => `<button role="tab" aria-selected="${S.cTab === k}" ${ok ? `onclick="A.cTab('${k}')"` : 'disabled title="Sem permissão para este perfil (RBAC)"'} class="px-3.5 py-2.5 text-sm font-semibold flex items-center gap-1.5 border-b-2 -mb-px ${S.cTab === k ? 'border-sky-600 text-sky-700' : 'border-transparent text-slate-500 hover:text-slate-800'} ${ok ? '' : 'opacity-40 cursor-not-allowed'}"><i data-lucide="${ok ? ic : 'lock'}" class="w-4 h-4"></i>${l}${n != null ? `<span class="ml-1 text-[11px] px-1.5 rounded-full ${S.cTab === k ? 'bg-sky-100' : 'bg-slate-100'}">${n}</span>` : ''}</button>`).join('')}</nav>
+    <div class="p-4">${body}</div>
+  </div>`;
+}
+function consoleMap(list, h = 'h-[560px]') {
+  return `<div class="relative ${h} rounded-xl overflow-auto thin-scroll border border-slate-200 map-bg"><div class="relative w-full" style="aspect-ratio:360/640">${mapBase({ areas: false, events: list })}${list.map((e) => marker(e, 'A.cSelect')).join('')}</div></div>`;
+}
+function factorMini(e) {
+  const c = calc(e);
+  return `<div class="grid grid-cols-4 gap-1.5 text-center">${[['F', e.F], ['K', c.K], ['A', e.A], ['Q', e.Q]].map(([k, v]) => `<div class="rounded-lg bg-slate-50 py-1"><div class="text-[10px] text-slate-500 font-bold">${k}</div><div class="font-mono text-sm font-bold">${v}</div></div>`).join('')}</div>`;
+}
+function queueCard(e) {
+  const c = calc(e);
+  const dl = e.status === 'Em validação' && e.filaDesde != null && PRAZO[c.P] ? e.filaDesde + PRAZO[c.P] : null;
+  const isSel = S.cSel === e.id;
+  const actions = e.status === 'Em validação'
+    ? `<button onclick="event.stopPropagation();A.validate('${e.id}')" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold flex items-center gap-1.5"><i data-lucide="check" class="w-4 h-4"></i>Validar</button>
+       <button onclick="event.stopPropagation();A.discard('${e.id}')" class="px-3 py-2 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 text-sm font-bold flex items-center gap-1.5"><i data-lucide="x" class="w-4 h-4"></i>Descartar</button>
+       <button onclick="event.stopPropagation();A.mergeDlg('${e.id}')" class="px-3 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 text-sm font-semibold flex items-center gap-1.5"><i data-lucide="git-merge" class="w-4 h-4"></i>Mesclar</button>`
+    : `<button onclick="event.stopPropagation();A.emitDlg('${e.id}')" class="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold flex items-center gap-1.5"><i data-lucide="megaphone" class="w-4 h-4"></i>Emitir alerta</button>
+       <button onclick="event.stopPropagation();A.keepMap('${e.id}')" class="px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold">Manter só no mapa</button>`;
+  return `<article onclick="A.cSelect('${e.id}')" class="rounded-xl border ${isSel ? 'border-sky-500 ring-2 ring-sky-200' : 'border-slate-200'} bg-white p-4 shadow-sm cursor-pointer">
+    <div class="flex items-start gap-3">${prioChip(c.P, true)}
+      <div class="flex-1 min-w-0"><div class="flex items-center gap-2">${typeIcon(e.tipo, 'w-4 h-4 text-slate-500')}<h3 class="font-bold truncate">${esc(e.titulo)}</h3>${e.status === 'Confirmado' ? statusChip('Confirmado') : ''}</div>
+        <p class="text-xs text-slate-500">${esc(e.local)} · ${esc(e.bairro)} · ${originSummary(e)} · na fila ${rel(Math.floor((e.filaDesde || simSec()) / 60))}</p></div>
+      ${dl ? `<div class="text-right shrink-0"><div class="text-[10px] uppercase font-bold text-slate-500">Prazo RN07</div><div class="font-mono font-bold text-lg" data-deadline="${dl}">--:--</div></div>` : `<div class="text-right text-[10px] text-slate-500 shrink-0 font-semibold uppercase">${e.status === 'Confirmado' ? 'Aguardando<br>emissão' : 'Sem prazo<br>(rotina P4/P5)'}</div>`}
+    </div>
+    <div class="mt-3 flex flex-wrap items-center gap-2">${riskBadge(c.rl)}${seal(e)}<span class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100">R = ${e.S}×${e.E} = ${c.R}</span><span class="text-[11px] text-slate-500">→ ${PRIO[c.P].desc}</span></div>
+    <div class="mt-3 grid md:grid-cols-[1fr_200px] gap-3 items-start"><p class="text-sm text-slate-700">${esc(e.resumo)}</p>${factorMini(e)}</div>
+    ${e.fotos ? `<div class="mt-3 flex gap-2">${Array.from({ length: e.fotos }).map(() => '<div class="w-20 h-14 rounded-lg blur-photo relative"><span class="absolute bottom-0.5 right-1 text-[9px] text-white font-bold bg-black/40 px-1 rounded">desfocada</span></div>').join('')}</div>` : ''}
+    <div class="mt-3 flex flex-wrap gap-2">${actions}</div>
+  </article>`;
+}
+function consoleFila(queue) {
+  if (S.cRole !== 'defesa') return rbacLock();
+  return `<div class="grid lg:grid-cols-[minmax(300px,380px)_1fr] gap-4">
+    <div>${consoleMap(queue.length ? queue : [])}<p class="text-[11px] text-slate-500 mt-2">Contorno tracejado = em verificação. Clique no marcador para focar o item.</p></div>
+    <div><div class="flex items-center justify-between mb-2"><h2 class="font-bold">Fila única priorizada <span class="text-slate-400 font-normal text-sm">P1 → P5, depois tempo na fila</span></h2>
+      <span class="text-xs text-slate-500">Estouro de prazo escala ao coordenador (RN09)</span></div>
+      <div class="space-y-3 max-h-[620px] overflow-y-auto thin-scroll pr-1">${queue.length ? queue.map(queueCard).join('') : '<div class="text-center py-16 text-slate-500"><i data-lucide="party-popper" class="w-8 h-8 mx-auto mb-2"></i>Fila vazia. Use "Relato de outro morador" na barra de demonstração.</div>'}</div></div>
+  </div>`;
+}
+function consoleAtivos(active) {
+  if (S.cRole !== 'defesa') return rbacLock();
+  const sorted = active.slice().sort((a, b) => calc(a).P - calc(b).P);
+  return `<div class="grid lg:grid-cols-[minmax(300px,380px)_1fr] gap-4"><div>${consoleMap(sorted)}</div>
+    <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-xs text-slate-500 border-b"><th class="py-2 pr-2">P</th><th class="pr-2">Evento</th><th class="pr-2">Risco</th><th class="pr-2">Confiança</th><th class="pr-2">Status</th><th class="pr-2">Atualizado</th><th></th></tr></thead>
+    <tbody>${sorted.map((e) => { const c = calc(e); return `<tr class="border-b border-slate-100 ${S.cSel === e.id ? 'bg-sky-50' : ''}" onclick="A.cSelect('${e.id}')"><td class="py-2.5 pr-2">${prioChip(c.P)}</td><td class="pr-2"><div class="font-semibold flex items-center gap-1.5">${typeIcon(e.tipo, 'w-4 h-4 text-slate-500')}${esc(e.titulo)}</div><div class="text-[11px] text-slate-500">${esc(e.bairro)} · ${originSummary(e)}</div></td>
+      <td class="pr-2">${riskBadge(c.rl)}</td><td class="pr-2">${seal(e)}</td><td class="pr-2">${statusChip(e.status)}</td><td class="pr-2 text-xs text-slate-500">${rel(e.atualizado)}</td>
+      <td><button onclick="event.stopPropagation();A.closeDlg('${e.id}')" class="px-2.5 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-xs font-bold flex items-center gap-1"><i data-lucide="circle-check-big" class="w-3.5 h-3.5"></i>Encerrar</button></td></tr>`; }).join('')}</tbody></table>
+      <p class="mt-3 text-xs text-slate-500">Encerramento automático: sensores com S ≤ 1 por 30 min, fonte oficial normalizada ou 6 h sem leitura (RN09).</p></div></div>`;
+}
+function intPreview() {
+  const f = S.intForm, b = BAIRROS[f.bairro];
+  const fake = { S: sevClientes(Number(f.clientes) || 0, f.hosp), E: b.E, F: 95, indep: 0, contest: 0, oficial: true, A: 100, Q: 100, validado: false };
+  const c = calc(fake);
+  return `<div class="grid grid-cols-2 gap-2 text-sm">
+    <div class="rounded-lg bg-slate-50 p-2"><div class="text-[11px] text-slate-500">Severidade (RN01)</div><b>S${fake.S}</b> <span class="text-xs text-slate-500">${f.hosp ? 'afeta hospital' : Number(f.clientes).toLocaleString('pt-BR') + ' clientes'}</span></div>
+    <div class="rounded-lg bg-slate-50 p-2"><div class="text-[11px] text-slate-500">Exposição (RN02)</div><b>E${b.E}</b> <span class="text-xs text-slate-500">${b.nota}</span></div>
+    <div class="rounded-lg bg-slate-50 p-2"><div class="text-[11px] text-slate-500">Risco (RN03)</div>${riskBadge(c.rl)} <span class="font-mono text-xs">R=${c.R}</span></div>
+    <div class="rounded-lg bg-slate-50 p-2"><div class="text-[11px] text-slate-500">Confiança · Prioridade</div><span class="inline-flex items-center gap-1 text-xs font-bold text-sky-800"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i>Alta ${c.C}</span> ${prioChip(c.P)}</div>
+  </div><p class="text-[11px] text-slate-500 mt-2">Fonte oficial ⇒ K = 100 (RN04). ${c.P <= 3 ? 'Alerta é emitido automaticamente ao publicar.' : 'Prioridade P4/P5: aparece no mapa, sem push.'}</p>`;
+}
+function consoleInterrupcoes() {
+  const f = S.intForm;
+  const pub = S.events.filter((e) => e.operador).sort((a, b) => b.criado - a.criado);
+  const inp = 'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm';
+  return `<div class="grid lg:grid-cols-2 gap-5">
+    <section class="rounded-xl border border-slate-200 p-4"><h2 class="font-bold flex items-center gap-2"><i data-lucide="zap-off" class="w-5 h-5 text-amber-600"></i>Publicar interrupção de serviço <span class="text-xs font-normal text-slate-500">(RF12)</span></h2>
+      <div class="grid grid-cols-2 gap-3 mt-3">
+        <label class="text-sm font-semibold">Serviço<select class="${inp}" onchange="A.intSet('servico',this.value)">${[['energia', 'Energia'], ['agua', 'Água'], ['transporte', 'Transporte']].map(([v, l]) => `<option value="${v}" ${f.servico === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <label class="text-sm font-semibold">Área afetada<select class="${inp}" onchange="A.intSet('bairro',this.value)">${Object.keys(BAIRROS).map((b) => `<option ${f.bairro === b ? 'selected' : ''}>${b}</option>`).join('')}</select></label>
+        <label class="text-sm font-semibold">Início<input type="time" class="${inp}" value="${f.inicio}" onchange="A.intSet('inicio',this.value)"></label>
+        <label class="text-sm font-semibold">Previsão de retorno<input type="time" class="${inp}" value="${f.retorno}" onchange="A.intSet('retorno',this.value)"></label>
+        <label class="text-sm font-semibold col-span-2">Clientes / pessoas afetadas<input type="number" min="0" class="${inp}" value="${f.clientes}" oninput="A.intSet('clientes',this.value)"></label>
+        <label class="col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" ${f.hosp ? 'checked' : ''} onchange="A.intSet('hosp',this.checked)" class="w-4 h-4"> Afeta hospital ou serviço essencial de saúde (força S5)</label>
+      </div>
+      <div class="mt-4 rounded-xl border border-sky-200 bg-sky-50/50 p-3"><div class="text-xs font-bold text-sky-900 mb-2">Prévia da classificação automática</div><div id="intPreview">${intPreview()}</div></div>
+      <button onclick="A.publishInt()" class="mt-4 w-full py-3 rounded-xl bg-slate-900 text-white font-bold flex items-center justify-center gap-2"><i data-lucide="send" class="w-4 h-4"></i>Publicar interrupção</button>
+    </section>
+    <section class="space-y-4">
+      <div class="rounded-xl border border-slate-200 p-4"><h3 class="font-bold mb-2">Interrupções publicadas</h3><ul class="divide-y divide-slate-100">${pub.map((e) => { const c = calc(e); return `<li class="py-2.5 flex items-center gap-3">${typeIcon(e.tipo, 'w-5 h-5 text-slate-500')}<div class="flex-1 min-w-0"><div class="text-sm font-semibold truncate">${esc(e.titulo)}</div><div class="text-[11px] text-slate-500">${(e.clientes || 0).toLocaleString('pt-BR')} afetados · retorno ${e.retorno} · ${statusChip(e.status)}</div></div>${riskBadge(c.rl)}</li>`; }).join('')}</ul></div>
+      <div class="rounded-xl border border-slate-200 p-4"><h3 class="font-bold mb-1 flex items-center gap-2"><i data-lucide="code-2" class="w-4 h-4"></i>Integração via API</h3><p class="text-xs text-slate-500 mb-2">Sistemas da concessionária podem publicar direto (OpenAPI 3.1, OAuth2 client credentials):</p>
+<pre class="text-[11px] bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto"><code>POST /api/v1/interrupcoes
+Authorization: Bearer &lt;token-da-concessionária&gt;
+{
+  "servico": "${f.servico}",
+  "area": { "type": "Polygon", "coordinates": [...] },
+  "inicio": "2026-11-17T${f.inicio}:00-03:00",
+  "previsaoRetorno": "2026-11-17T${f.retorno}:00-03:00",
+  "afetados": ${Number(f.clientes) || 0}
+}</code></pre></div>
+    </section></div>`;
+}
+function consoleIndicadores() {
+  const all = S.events.filter((e) => e.status !== 'Reportado');
+  const byReg = {}; all.forEach((e) => { byReg[e.bairro] = (byReg[e.bairro] || 0) + 1; });
+  const byTipo = {}; all.forEach((e) => { byTipo[e.tipo] = (byTipo[e.tipo] || 0) + 1; });
+  const maxR = Math.max(...Object.values(byReg)), maxT = Math.max(...Object.values(byTipo));
+  const alerts = S.events.filter((e) => e.timeline.some((t) => t.s === 'Alerta emitido')).length;
+  const kpi = (l, v, sub, ic, tone = 'text-slate-900') => `<div class="rounded-xl border border-slate-200 p-4"><div class="text-xs text-slate-500 flex items-center gap-1.5"><i data-lucide="${ic}" class="w-4 h-4"></i>${l}</div><div class="text-3xl font-extrabold mt-1 ${tone}">${v}</div><div class="text-[11px] text-slate-500 mt-0.5">${sub}</div></div>`;
+  const bars = (obj, max, labelFn) => Object.entries(obj).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="flex items-center gap-2 text-sm"><span class="w-36 truncate text-slate-600">${labelFn(k)}</span><div class="flex-1 h-6 rounded bg-slate-100 overflow-hidden"><div class="h-full rounded bg-sky-600" style="width:${(v / max) * 100}%"></div></div><span class="w-6 text-right font-mono font-bold">${v}</span></div>`).join('');
+  return `<div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+    ${kpi('Eventos ativos', S.events.filter((e) => ACTIVE.includes(e.status)).length, 'agora', 'activity')}
+    ${kpi('Alertas emitidos', alerts, 'hoje', 'megaphone')}
+    ${kpi('Tempo médio de validação', '6m40s', 'meta ≤ 10 min (RN07)', 'timer', 'text-emerald-700')}
+    ${kpi('Relatos falsos', '12%', 'últimos 30 dias', 'shield-x')}
+    ${kpi('Latência sensor → painel', '38 s', 'p95 · meta ≤ 60 s (RNF01)', 'gauge', 'text-emerald-700')}
+    ${kpi('Disponibilidade', '99,96%', 'mês · meta 99,9% (RNF02)', 'server', 'text-emerald-700')}
+  </div>
+  <div class="grid lg:grid-cols-2 gap-4 mt-4">
+    <section class="rounded-xl border border-slate-200 p-4"><h3 class="font-bold mb-3">Eventos por região</h3><div class="space-y-2">${bars(byReg, maxR, (k) => k)}</div></section>
+    <section class="rounded-xl border border-slate-200 p-4"><h3 class="font-bold mb-3">Eventos por tipo</h3><div class="space-y-2">${bars(byTipo, maxT, (k) => TIPOS[k].nome)}</div></section>
+  </div>
+  <p class="mt-3 text-xs text-slate-500 flex items-center gap-1.5"><i data-lucide="eye-off" class="w-4 h-4"></i>Indicadores calculados no data lake com dados anonimizados (RF17 · LGPD).</p>`;
+}
+function consoleAuditoria() {
+  if (S.cRole !== 'defesa') return rbacLock();
+  return `<div class="flex items-center justify-between mb-3"><h2 class="font-bold">Log de auditoria imutável <span class="text-sm font-normal text-slate-500">(RNF08 · cadeia de hashes)</span></h2><span class="text-xs text-slate-500">Retenção: 5 anos</span></div>
+  <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-xs text-slate-500 border-b"><th class="py-2 pr-3">Hora</th><th class="pr-3">Usuário</th><th class="pr-3">Ação</th><th class="pr-3">Evento</th><th class="pr-3">Justificativa</th><th>Hash (anterior → atual)</th></tr></thead>
+  <tbody>${S.audit.map((a) => `<tr class="border-b border-slate-100"><td class="py-2 pr-3 font-mono text-xs">${hhmm(a.hora)}</td><td class="pr-3 text-xs">${esc(a.user)}</td><td class="pr-3 font-semibold">${esc(a.acao)}</td><td class="pr-3 font-mono text-xs">${a.eventId}</td><td class="pr-3 text-xs text-slate-600">${esc(a.just)}</td><td class="font-mono text-[11px] text-slate-500">${a.prev} → <b class="text-slate-800">${a.hash}</b></td></tr>`).join('')}</tbody></table></div>`;
+}
+const rbacLock = () => `<div class="py-20 text-center text-slate-500"><i data-lucide="lock" class="w-8 h-8 mx-auto mb-2"></i><b>Acesso restrito ao perfil Defesa Civil (RBAC).</b><br><span class="text-sm">Operadoras de serviço publicam interrupções e veem indicadores.</span></div>`;
+
+/* =====================================================================
+   PAINEL LATERAL (metadados para o vídeo e para a banca)
+   ===================================================================== */
+const META = {
+  T01: { n: 'Boas-vindas, login e consentimento LGPD', rf: ['RF14'], rnf: ['RNF07', 'RNF09'], rn: [], d: 'Cadastro mínimo (só telefone) e consentimentos granulares e opcionais. Agentes entram com MFA.' },
+  T02: { n: 'Painel de acompanhamento (mapa)', rf: ['RF07', 'RF05', 'RF06', 'RF01', 'RF02'], rnf: ['RNF01', 'RNF05', 'RNF06'], rn: ['RN03', 'RN07'], d: 'Marcadores com cor + forma + texto por nível de risco; contorno tracejado = em verificação. Toque em um marcador para abrir o resumo.' },
+  T03: { n: 'Lista de alertas', rf: ['RF08', 'RF05', 'RF06'], rnf: ['RNF05'], rn: ['RN07'], d: 'Ordenação por prioridade P1→P5 e distância. Filtros por tipo, risco e confiança.' },
+  T04: { n: 'Detalhe do alerta', rf: ['RF08', 'RF06', 'RF15'], rnf: ['RNF05'], rn: ['RN01', 'RN02', 'RN04'], d: 'Linha do tempo espelha o diagrama de estados. "Também estou vendo" recalcula a corroboração (K).' },
+  T05: { n: 'Origem e nível de confiança ★', rf: ['RF06'], rnf: ['RNF05', 'RNF07'], rn: ['RN04', 'RN05', 'RN07'], d: 'Tela central do tema: nota decomposta em F, K, A e Q, fontes anonimizadas e a célula da matriz de prioridade.' },
+  T06: { n: 'Central de notificações', rf: ['RF09', 'RF10', 'RF16'], rnf: ['RNF01'], rn: ['RN08'], d: 'Histórico lida/não lida; atualizações do mesmo evento são agrupadas (anti-spam).' },
+  T07: { n: 'Registro comunitário de ocorrência', rf: ['RF03'], rnf: ['RNF05', 'RNF07', 'RNF09'], rn: ['RN01', 'RN04', 'RN06'], d: '3 toques: tipo → local → Enviar agora. Relatos a ≤ 500 m do mesmo tipo são agrupados ao evento existente.' },
+  T08: { n: 'Confirmação e acompanhamento', rf: ['RF16', 'RF03'], rnf: [], rn: ['RN05', 'RN09'], d: 'Stepper com os estados do Diagrama de Estados. Atualiza em tempo real quando o agente age no console.' },
+  T09: { n: 'Console da Defesa Civil / Operador', rf: ['RF11', 'RF12', 'RF17', 'RF04'], rnf: ['RNF08'], rn: ['RN07', 'RN09'], d: 'Fila única priorizada, prazos de validação, emissão, encerramento, interrupções, indicadores e auditoria.' },
+  T10: { n: 'Perfil, áreas e privacidade', rf: ['RF13', 'RF14'], rnf: ['RNF07', 'RNF09'], rn: ['RN08'], d: 'Áreas monitoradas, preferências, horário de silêncio e direitos do titular (exportar, corrigir, excluir).' },
+};
+function sidePanel() {
+  const m = META[S.view];
+  const chips = (arr, cls) => arr.map((x) => `<span class="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${cls}">${x}</span>`).join(' ');
+  return `<div class="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+    <div class="text-[11px] font-bold uppercase tracking-widest text-slate-400">Tela atual</div>
+    <div class="mt-1 flex items-center gap-2"><span class="font-mono font-extrabold text-sky-700 text-lg">${S.view}</span><span class="font-bold leading-tight">${m.n}</span></div>
+    <p class="text-sm text-slate-600 mt-2">${m.d}</p>
+    <div class="mt-3 space-y-1.5"><div>${chips(m.rf, 'bg-sky-100 text-sky-800')}</div>${m.rnf.length ? `<div>${chips(m.rnf, 'bg-violet-100 text-violet-800')}</div>` : ''}${m.rn.length ? `<div>${chips(m.rn, 'bg-amber-100 text-amber-900')}</div>` : ''}</div>
+  </div>
+  <div class="mt-3 rounded-2xl bg-white border border-slate-200 p-5 shadow-sm text-sm">
+    <div class="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Fluxo principal da demo</div>
+    <ol class="space-y-1 text-slate-700">${[['T01', 'Login + LGPD'], ['T02', 'Mapa'], ['T06', 'Push → Notificações'], ['T04', 'Detalhe'], ['T05', 'Origem e confiança'], ['T07', 'Relatar'], ['T08', 'Acompanhar relato'], ['T09', 'Agente valida e emite'], ['T06', 'Relato confirmado']].map(([v, l], i) => `<li><button onclick="A.go('${v}')" class="w-full text-left flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-slate-50 ${S.view === v ? 'bg-sky-50 text-sky-800 font-semibold' : ''}"><span class="w-5 h-5 rounded-full bg-slate-900 text-white text-[10px] grid place-items-center">${i + 1}</span><span class="font-mono text-xs text-slate-400">${v}</span>${l}</button></li>`).join('')}</ol>
+    <p class="text-[11px] text-slate-400 mt-3">Atalhos: teclas 1–9 e 0 pulam para T01–T10 · D oculta a barra.</p>
+  </div>`;
+}
+function legendPanel() {
+  return `<div class="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm text-sm space-y-4">
+    <div><div class="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Nível de risco (RN03)</div>
+      <div class="space-y-1.5">${[['Baixo', '1–3'], ['Moderado', '4–6'], ['Alto', '7–10'], ['Crítico', '11–15']].map(([l, r]) => `<div class="flex items-center justify-between">${riskBadge(l)}<span class="font-mono text-xs text-slate-500">R ${r}</span></div>`).join('')}</div>
+      <p class="text-[11px] text-slate-500 mt-1">R = Severidade (1–5) × Exposição (1–3). Cor + forma + texto.</p></div>
+    <div><div class="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Selo de confiança (RN04)</div>
+      <div class="space-y-1.5 text-xs">
+        <div class="flex items-center gap-2"><span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-bold bg-indigo-700 text-white"><i data-lucide="badge-check" class="w-3.5 h-3.5"></i>Validado</span>agente = 100</div>
+        <div class="flex items-center gap-2"><span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-bold bg-sky-700 text-white"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i>Alta</span>≥ 75</div>
+        <div class="flex items-center gap-2"><span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-bold bg-sky-50 text-sky-900 ring-2 ring-sky-400"><i data-lucide="shield-half" class="w-3.5 h-3.5"></i>Média</span>50–74</div>
+        <div class="flex items-center gap-2"><span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-bold bg-white text-slate-700 border-2 border-dashed border-slate-400"><i data-lucide="shield-question" class="w-3.5 h-3.5"></i>Baixa</span>&lt; 50</div>
+      </div>
+      <p class="text-[11px] text-slate-500 mt-1">C = 0,4F + 0,3K + 0,2A + 0,1Q</p></div>
+    <div><div class="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Origem</div>
+      <div class="space-y-1 text-xs">${['sensor', 'oficial', 'comunidade'].map((t) => `<div class="flex items-center gap-2"><span class="w-6 h-6 rounded-lg grid place-items-center ${srcColor[t]}"><i data-lucide="${srcIcon[t]}" class="w-3.5 h-3.5"></i></span>${srcLabel[t]}</div>`).join('')}</div></div>
+  </div>`;
+}
+
+/* =====================================================================
+   RENDERIZAÇÃO E NAVEGAÇÃO
+   ===================================================================== */
+const VIEWS = { T01: viewT01, T02: viewT02, T03: viewT03, T04: viewT04, T05: viewT05, T06: viewT06, T07: viewT07, T08: viewT08, T09: viewT09, T10: viewT10 };
+const NAMES = { T01: 'Login/LGPD', T02: 'Painel', T03: 'Alertas', T04: 'Detalhe', T05: 'Origem/Confiança', T06: 'Notificações', T07: 'Relatar', T08: 'Meu relato', T09: 'Console', T10: 'Privacidade' };
+const icons = () => { if (window.lucide) window.lucide.createIcons(); };
+
+function renderDemoNav() {
+  $('demoNav').innerHTML = Object.keys(NAMES).map((k) => `<button onclick="A.go('${k}')" aria-current="${S.view === k}" class="text-[11px] px-2 py-1.5 rounded-md whitespace-nowrap ${S.view === k ? 'bg-sky-500 text-white font-bold' : 'text-slate-300 hover:bg-slate-800'}"><span class="font-mono font-bold">${k}</span> ${NAMES[k]}</button>`).join('');
+}
+function renderNav() {
+  const nav = $('bottomNav');
+  if (S.view === 'T01') { nav.innerHTML = ''; nav.classList.add('hidden'); return; }
+  nav.classList.remove('hidden');
+  const unread = S.notifs.filter((n) => !n.lida).length;
+  const active = { T02: 'T02', T03: 'T03', T04: 'T03', T05: 'T03', T06: 'T06', T07: 'T07', T08: 'T07', T10: 'T10' }[S.view];
+  const it = (v, ic, l, badge) => `<button onclick="A.go('${v}')" aria-current="${active === v ? 'page' : 'false'}" class="flex-1 flex flex-col items-center gap-0.5 py-2 relative ${active === v ? 'text-sky-700' : 'text-slate-500'}"><i data-lucide="${ic}" class="w-[22px] h-[22px]"></i><span class="text-[10px] font-semibold">${l}</span>${badge ? `<span class="absolute top-1 right-[calc(50%-18px)] min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold grid place-items-center">${badge}</span>` : ''}</button>`;
+  nav.innerHTML = `<div class="flex items-end px-1 pb-1">${it('T02', 'map', 'Mapa')}${it('T03', 'list', 'Alertas')}
+    <div class="flex-1 flex justify-center"><button onclick="A.go('T07')" aria-label="Relatar ocorrência" class="-mt-6 w-14 h-14 rounded-2xl bg-slate-900 text-white shadow-xl grid place-items-center ring-4 ring-white ${active === 'T07' ? 'bg-sky-700' : ''}"><i data-lucide="plus" class="w-7 h-7"></i></button></div>
+    ${it('T06', 'bell', 'Avisos', S.visitor ? 0 : unread)}${it('T10', 'user', 'Perfil')}</div>`;
+}
+function render() {
+  const isConsole = S.view === 'T09';
+  $('citizenWrap').classList.toggle('hidden', isConsole);
+  $('consoleWrap').classList.toggle('hidden', !isConsole);
+  if (isConsole) $('consoleWrap').innerHTML = viewT09();
+  else {
+    const scr = $('screen');
+    scr.innerHTML = VIEWS[S.view]();
+    scr.classList.toggle('overflow-y-auto', S.view !== 'T02');
+    $('statusBar').classList.toggle('text-white', S.view === 'T01'); $('statusBar').classList.toggle('bg-sky-900', S.view === 'T01'); $('statusBar').classList.toggle('bg-white', S.view !== 'T01');
+    renderNav();
+    $('sidePanel').innerHTML = sidePanel();
+    $('legendPanel').innerHTML = legendPanel();
+  }
+  renderDemoNav();
+  icons();
+  afterRender();
+  tick();
+}
+function afterRender() {
+  // anima gauge e barras da T05
+  requestAnimationFrame(() => {
+    const g = $('gaugeArc'); if (g) g.style.strokeDashoffset = g.dataset.off;
+    document.querySelectorAll('.bar-fill').forEach((b) => { b.style.width = b.dataset.w + '%'; });
+  });
+  // centraliza mini-mapas no evento
+  document.querySelectorAll('[data-mini]').forEach((box) => {
+    const e = ev(box.dataset.mini); const inner = box.querySelector('.mini-inner'); if (!e || !inner) return;
+    const W = inner.offsetWidth, H = inner.offsetHeight;
+    inner.style.left = (box.offsetWidth / 2 - (e.x / 360) * W) + 'px';
+    inner.style.top = (box.offsetHeight / 2 - (e.y / 640) * H) + 'px';
+  });
+  const pm = $('pinMap'); if (pm) { const inner = pm.firstElementChild; pm.scrollLeft = (S.t07.pos.x / 360) * inner.offsetWidth - pm.offsetWidth / 2; pm.scrollTop = (S.t07.pos.y / 640) * inner.offsetHeight - pm.offsetHeight / 2; }
+  if (S.view === 'T02' && S._center) { S._center = false; A.centerMe(true); }
+}
+function go(v, opts = {}) {
+  if (!VIEWS[v]) return;
+  if (v !== S.view) S.prevView = S.view;
+  S.view = v;
+  if (v === 'T09' && !opts.keepRole && S.t01.mode === 'agente') S.cRole = S.t01.agentProfile;
+  if (v !== 'T01' && !S.logged && !S.visitor && v !== 'T09') S.logged = true;
+  if (v === 'T02') S._center = !opts.keepScroll;
+  render();
+  const scr = $('screen'); if (scr && !opts.keepScroll) scr.scrollTop = 0;
+}
+
+/* ---------- Toasts e push ---------- */
+function toast(msg, tone = 'dark') {
+  if (S.view === 'T09') {
+    const el = document.createElement('div');
+    el.className = `fade-in rounded-xl px-4 py-3 shadow-xl text-sm font-semibold max-w-sm ${tone === 'ok' ? 'bg-emerald-600 text-white' : tone === 'warn' ? 'bg-amber-500 text-amber-950' : 'bg-slate-900 text-white'}`;
+    el.textContent = msg; $('consoleToast').appendChild(el); setTimeout(() => el.remove(), 3800); return;
+  }
+  const box = $('phoneToast');
+  box.innerHTML = `<div class="fade-in mx-4 rounded-full bg-slate-900/95 text-white text-xs font-semibold px-4 py-2.5 shadow-xl">${esc(msg)}</div>`;
+  clearTimeout(toast._t); toast._t = setTimeout(() => { box.innerHTML = ''; }, 3200);
+}
+function pushNotif(n) {
+  // RN08: agrupa atualizações do mesmo evento não lidas
+  const existing = n.eventId && n.cat === 'alerta' && S.notifs.find((x) => x.eventId === n.eventId && !x.lida && x.cat === 'alerta');
+  let item;
+  if (existing) { existing.titulo = n.titulo; existing.texto = n.texto; existing.hora = simMin(); existing.upd = (existing.upd || 0) + 1; item = existing; S.notifs = [existing, ...S.notifs.filter((x) => x !== existing)]; }
+  else { item = { id: 'n' + Date.now() + Math.random().toString(16).slice(2, 5), lida: false, hora: simMin(), ...n }; S.notifs.unshift(item); }
+  showPush(item);
+  if (S.view !== 'T09') renderNav(), icons();
+}
+function showPush(n) {
+  const e = n.eventId && ev(n.eventId), c = e && calc(e);
+  const layer = $('pushLayer');
+  layer.innerHTML = `<button onclick="A.openNotif('${n.id}')" class="push-in w-full text-left rounded-2xl bg-white/95 backdrop-blur shadow-2xl ring-1 ring-black/5 p-3 flex gap-3">
+    <span class="w-10 h-10 rounded-xl grid place-items-center shrink-0" style="${c ? `background:${RISK[c.rl].hex};color:${RISK[c.rl].ink}` : 'background:#7c3aed;color:#fff'}"><i data-lucide="${e ? TIPOS[e.tipo].icon : 'message-square-check'}" class="w-5 h-5"></i></span>
+    <span class="flex-1 min-w-0"><span class="flex justify-between text-[11px] text-slate-500"><b class="text-slate-700">ALERTA VIVO</b>agora</span><span class="block text-sm font-bold leading-tight">${esc(n.titulo)}</span><span class="block text-xs text-slate-600 truncate">${esc(n.texto)}</span></span></button>`;
+  icons();
+  clearTimeout(showPush._t); showPush._t = setTimeout(() => { layer.innerHTML = ''; }, 6500);
+  if (S.view === 'T09') toast(`Push entregue ao app do cidadão: "${n.titulo}"`, 'ok');
+}
+function modal(html) {
+  $('modal').innerHTML = `<div class="fixed inset-0 z-[100] bg-slate-900/60 flex items-center justify-center p-4 fade-in" onclick="if(event.target===this)A.closeModal()"><div role="dialog" aria-modal="true" class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">${html}</div></div>`;
+  icons();
+  const f = $('modal').querySelector('select, textarea, input, button'); if (f) f.focus();
+}
+
+/* =====================================================================
+   AÇÕES (expostas no objeto A para os handlers inline)
+   ===================================================================== */
+const A = {
+  render, go, toast, noop() {},
+  back() { go(S.prevView && S.prevView !== S.view && S.prevView !== 'T01' ? S.prevView : 'T02'); },
+  set(k, v) { S[k] = v; render(); },
+  /* T01 */
+  consent(k) { S.consents[k] = !S.consents[k]; if (S.view !== 'T01') addAudit('Marina (' + S.user.pseudo + ')', 'Alterou consentimento', '—', `${k} = ${S.consents[k]}`); render(); toast(`Consentimento ${S.consents[k] ? 'concedido' : 'revogado'} e registrado`); },
+  sendCode() { S.t01.codeSent = true; render(); toast('Código enviado por SMS'); },
+  t01Mode(m) { S.t01.mode = m; render(); },
+  loginCitizen() { S.visitor = false; S.logged = true; S.t01.codeSent = true; go('T02'); if (!S.pushedOnce) { S.pushedOnce = true; setTimeout(() => A.demoPush(), 3500); } },
+  loginVisitor() { S.visitor = true; S.logged = false; go('T02'); },
+  loginAgent() { S.cRole = S.t01.agentProfile; S.cTab = S.cRole === 'defesa' ? 'fila' : 'interrupcoes'; go('T09', { keepRole: true }); toast(`Bem-vindo(a), ${S.cRole === 'defesa' ? 'Sgt. Ricardo' : 'Juliana'} · MFA verificado`, 'ok'); },
+  privacyInfo() {
+    modal(`<h2 class="text-lg font-bold flex items-center gap-2"><i data-lucide="shield-check" class="w-5 h-5 text-sky-700"></i>Como usamos seus dados</h2>
+      <ul class="mt-3 space-y-2 text-sm text-slate-700">
+        <li>• <b>Finalidade:</b> avisar sobre riscos nas suas áreas e processar seus relatos (base legal: consentimento e proteção da vida — Art. 7º LGPD).</li>
+        <li>• <b>Minimização:</b> só telefone; sem CPF nem endereço completo.</li>
+        <li>• <b>Pseudonimização:</b> seus relatos usam um ID (${S.user.pseudo}); seu nome nunca aparece para outros usuários.</li>
+        <li>• <b>Retenção:</b> histórico de localização por no máximo 30 dias.</li>
+        <li>• <b>Segurança:</b> TLS 1.3 em trânsito e AES-256 em repouso.</li>
+        <li>• <b>Seus direitos:</b> acessar, exportar, corrigir e excluir em Perfil → Privacidade (resposta em até 15 dias).</li></ul>
+      <button onclick="A.closeModal()" class="mt-5 w-full py-2.5 rounded-xl bg-sky-700 text-white font-bold">Entendi</button>`);
+  },
+  closeModal() { $('modal').innerHTML = ''; },
+  logout() { S.logged = false; S.visitor = false; S.t01.mode = 'cidadao'; go('T01'); },
+  /* T02 */
+  selectEvent(id, fromOther) { S.sel = id; if (fromOther) { go('T02', { keepScroll: true }); setTimeout(() => A.centerOn(ev(id)), 50); } else render(); },
+  mapType(k) { S.mapTypes[k] = !S.mapTypes[k]; S.sel = null; render(); },
+  onlyHigh() { S.onlyHigh = !S.onlyHigh; S.sel = null; render(); toast(S.onlyHigh ? 'Mostrando apenas confiança Alta ou validados' : 'Mostrando todos os níveis de confiança'); },
+  toggleAreas() { S.showAreas = !S.showAreas; render(); },
+  zoom(d) { S.zoom = Math.min(2.2, Math.max(1, +(S.zoom + d * 0.4).toFixed(1))); render(); A.centerMe(true); },
+  centerOn(p) { const sc = $('mapScroll'); if (!sc || !p) return; const inner = sc.firstElementChild; sc.scrollLeft = (p.x / 360) * inner.offsetWidth - sc.offsetWidth / 2; sc.scrollTop = (p.y / 640) * inner.offsetHeight - sc.offsetHeight / 2; },
+  centerMe(silent) { A.centerOn(HOME); if (!silent) toast('Centralizado na sua localização'); },
+  openEvent(id) { S.selected = id; S.sel = null; go('T04'); },
+  openTrust(id) { S.selected = id; S.sel = null; if (S.view === 'T09') { S.prevView = 'T09'; } go('T05'); },
+  /* T03 */
+  listFilter(k, v) { S.listF[k] = v; render(); },
+  /* T04 */
+  vote(id, dir) {
+    const e = ev(id), before = calc(e).C;
+    if (dir === 'up') { e.indep += 1; e.fontes.push({ t: 'comunidade', nome: 'Sua confirmação', det: 'Corroboração · autor pseudonimizado (' + S.user.pseudo + ')', hora: simMin(), minha: true }); tl(e, 'Atualização', 'Morador confirmou o evento (corroboração +1)'); }
+    else { e.contest += 1; tl(e, 'Atualização', 'Morador contestou o evento (K −15)'); }
+    S.voted[id] = dir; const after = calc(e).C;
+    render();
+    toast(e.oficial ? 'Obrigado! Fonte oficial: K já é 100. Sua resposta foi enviada ao agente.' : `Obrigado! Confiança recalculada: ${before} → ${after}`);
+  },
+  share() { toast('Link do alerta copiado (dados pessoais não incluídos)'); },
+  /* T06 */
+  openNotif(id) { const n = S.notifs.find((x) => x.id === id); if (!n) return; n.lida = true; $('pushLayer').innerHTML = ''; if (n.cat === 'relato' && S.lastReport && n.eventId) go('T08'); else if (n.eventId) A.openEvent(n.eventId); else { render(); toast(n.texto); } },
+  readAll() { S.notifs.forEach((n) => (n.lida = true)); render(); toast('Todas marcadas como lidas'); },
+  /* T07 */
+  t07Tipo(k) { S.t07.tipo = k; S.t07.step = 2; render(); },
+  t07Step(d) { S.t07.step = Math.min(3, Math.max(1, S.t07.step + d)); render(); },
+  t07Set(k, v) { S.t07[k] = v; render(); },
+  t07Pin(evt, el) { const r = el.getBoundingClientRect(); S.t07.pos = { x: Math.round(((evt.clientX - r.left) / r.width) * 360), y: Math.round(((evt.clientY - r.top) / r.height) * 640) }; const sc = $('pinMap'); const keep = [sc.scrollLeft, sc.scrollTop]; render(); const sc2 = $('pinMap'); if (sc2) { sc2.scrollLeft = keep[0]; sc2.scrollTop = keep[1]; } },
+  submitReport() {
+    const f = S.t07; if (!f.tipo) return;
+    // RN06 — relato duplicado do mesmo usuário em < 10 min
+    const dup = S.reports.find((r) => r.tipo === f.tipo && r.criadoMin != null && simMin() - r.criadoMin < 10);
+    if (dup) { toast('Relato duplicado em menos de 10 min (RN06) — abrindo o anterior'); S.lastReport = dup.id; go('T08'); return; }
+    const sev = { leve: 2, moderada: 3, grave: 4 }[f.intensidade];
+    const q = qRelato({ foto: f.foto, desc: f.desc });
+    const nb = Object.entries(BAIRROS).sort((a, b) => distU(a[1], f.pos) - distU(b[1], f.pos))[0];
+    // RN04 / RF04 — correlação: mesmo tipo, raio de 500 m, evento ainda ativo
+    const cand = S.events.find((e) => e.tipo === f.tipo && ACTIVE.includes(e.status) && distU(e, f.pos) <= 500 / UNIT_M);
+    const fonte = { t: 'comunidade', nome: 'Seu relato', det: `Autor pseudonimizado (${S.user.pseudo}) · ${f.foto ? 'foto desfocada + ' : ''}GPS ± 15 m${f.desc ? ' + descrição' : ''}`, hora: simMin(), minha: true };
+    let e, merged = false;
+    if (cand) {
+      e = cand; merged = true;
+      const before = calc(e).C;
+      e.indep += 1; e.S = Math.max(e.S, sev); e.Q = Math.round((e.Q + q) / 2); e.A = 100; e.fontes.push(fonte);
+      tl(e, 'Atualização', `Novo relato correlacionado (≤ 500 m) · C ${before} → ${calc(e).C}`);
+    } else {
+      const id = 'E' + S.eventSeq++;
+      e = { id, tipo: f.tipo, titulo: `${TIPOS[f.tipo].nome} — próximo a ${nb[0]}`, local: f.desc ? `"${f.desc}"` : 'Local informado pelo morador', bairro: nb[0], x: f.pos.x, y: f.pos.y, raio: 22,
+        S: sev, sevTxt: `S${sev} · intensidade "${f.intensidade}" informada`, E: nb[1].E, expTxt: `E${nb[1].E} · ${nb[1].nota}`,
+        F: S.user.reputacao, fTxt: `Relato comunitário: reputação do autor = ${S.user.reputacao} (não exibida publicamente)`, indep: 0, contest: 0, A: 100, aTxt: 'Relato de agora', Q: q, qTxt: `${f.foto ? 'Foto (+40) ' : ''}GPS (+30) ${f.desc ? 'Descrição (+30)' : ''}`,
+        status: 'Em validação', criado: simMin(), atualizado: simMin(), validado: false, filaDesde: simSec(), fotos: f.foto ? 1 : 0,
+        resumo: f.desc || `${TIPOS[f.tipo].nome} relatado por morador (intensidade ${f.intensidade}).`, fontes: [{ ...fonte, principal: true }], timeline: [] };
+      tl(e, 'Reportado', 'Relato comunitário recebido e pseudonimizado');
+      const c = calc(e); tl(e, 'Em validação', `R = ${e.S} × ${e.E} = ${c.R} (${c.rl}) · C = ${c.C} (${c.cl}) → ${PRIO[c.P].txt}`);
+      S.events.push(e);
+    }
+    addAudit('Sistema · LGPD', 'Pseudonimizou relato' + (f.foto ? ' e desfocou foto' : ''), e.id, `Autor → ${S.user.pseudo}`);
+    const rep = { id: 'r' + Date.now(), protocolo: 'URB-2026-00' + S.reportSeq++, tipo: f.tipo, local: e.local.replace(/"/g, ''), data: 'hoje ' + hhmm(simMin()), eventId: e.id, merged, criadoMin: simMin() };
+    S.reports.unshift(rep); S.lastReport = rep.id;
+    S.notifs.unshift({ id: 'n' + Date.now(), cat: 'relato', titulo: 'Relato recebido · #' + rep.protocolo, texto: merged ? 'Ele se juntou a outras fontes sobre o mesmo local.' : 'Em validação pela Defesa Civil.', hora: simMin(), lida: true, eventId: e.id });
+    S.t07 = { step: 1, tipo: null, pos: { x: 158, y: 292 }, intensidade: 'moderada', foto: false, desc: '' };
+    go('T08');
+  },
+  /* T10 */
+  areaToggle(id) { const a = S.areas.find((x) => x.id === id); a.ativo = !a.ativo; render(); },
+  areaRaio(id, v) { S.areas.find((x) => x.id === id).raio = Number(v); toast('Raio atualizado'); },
+  addArea() { S.areas.push({ id: 'a' + Date.now(), nome: 'Escola do filho', desc: 'Vila Curuçá', raio: 0.5, ativo: true, icon: 'school' }); render(); toast('Área adicionada (demo)'); },
+  prefTipo(k) { S.prefs.tipos[k] = !S.prefs.tipos[k]; render(); },
+  prefSil() { S.prefs.silencio = !S.prefs.silencio; render(); },
+  prefCanal(k) { S.prefs.canais[k] = !S.prefs.canais[k]; render(); },
+  exportData() {
+    const data = { titular: { nome: S.user.nome, telefone: S.user.tel, idPseudonimo: S.user.pseudo }, consentimentos: S.consents, areasMonitoradas: S.areas, preferencias: S.prefs,
+      relatos: S.reports.map((r) => ({ protocolo: r.protocolo, tipo: r.tipo, data: r.data })), geradoEm: new Date().toISOString(), base: 'LGPD Art. 18, V — portabilidade' };
+    try { const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'meus-dados-alerta-vivo.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); } catch (err) { /* ambiente sem download */ }
+    addAudit('Marina (' + S.user.pseudo + ')', 'Exportou os próprios dados', '—', 'Art. 18 LGPD'); toast('Arquivo meus-dados-alerta-vivo.json gerado');
+  },
+  editData() {
+    modal(`<h2 class="text-lg font-bold">Corrigir meus dados</h2><label class="block mt-3 text-sm font-semibold">Nome<input id="edNome" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" value="${esc(S.user.nome)}"></label>
+      <label class="block mt-3 text-sm font-semibold">Telefone<input id="edTel" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" value="${esc(S.user.tel)}"></label>
+      <div class="mt-5 flex gap-2"><button onclick="A.closeModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 font-semibold">Cancelar</button><button onclick="S.user.nome=$('edNome').value;S.user.tel=$('edTel').value;A.closeModal();A.render();A.toast('Dados corrigidos')" class="flex-1 py-2.5 rounded-xl bg-sky-700 text-white font-bold">Salvar</button></div>`);
+  },
+  deleteAccount() {
+    modal(`<h2 class="text-lg font-bold flex items-center gap-2 text-red-700"><i data-lucide="trash-2" class="w-5 h-5"></i>Excluir conta?</h2><p class="text-sm text-slate-600 mt-2">Seus dados pessoais serão apagados em até 15 dias. Relatos já enviados permanecem apenas de forma anonimizada nas estatísticas.</p>
+      <div class="mt-5 flex gap-2"><button onclick="A.closeModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 font-semibold">Cancelar</button><button onclick="A.closeModal();A.logout();A.toast('Solicitação de exclusão registrada')" class="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold">Excluir</button></div>`);
+  },
+  /* T09 — console */
+  cTab(t) { S.cTab = t; render(); },
+  cRole(r) { S.cRole = r; S.cTab = r === 'defesa' ? 'fila' : 'interrupcoes'; render(); toast(`Perfil alterado: ${r === 'defesa' ? 'Defesa Civil (acesso completo)' : 'Operadora (interrupções e indicadores)'}`); },
+  cSelect(id) { S.cSel = id; render(); },
+  validate(id) {
+    const e = ev(id), before = calc(e);
+    e.validado = true; e.validadoEm = simMin(); e.status = 'Confirmado';
+    e.fontes.push({ t: 'validacao', nome: 'Defesa Civil — validação humana', det: 'Agente validou em campo/por câmeras (nome do agente não exibido ao público)', hora: simMin() });
+    tl(e, 'Confirmado', `Validado por agente · C ${before.C} → 100 (RN04)`);
+    addAudit('Sgt. Ricardo Almeida · agt_031', 'Validou evento', id, `C ${before.C} → 100`);
+    const c = calc(e);
+    if (c.P >= 4) { e.status = 'Em monitoramento'; e.semAlerta = true; tl(e, 'Em monitoramento', `Sem alerta (${PRIO[c.P].txt}): apenas mapa`); }
+    A.rewardReporters(e, true);
+    render();
+    toast(c.P <= 3 ? `Validado. Prioridade agora ${PRIO[c.P].txt} — emita o alerta.` : `Validado. ${PRIO[c.P].txt}: segue só no mapa.`, 'ok');
+  },
+  rewardReporters(e, ok, motivo) {
+    if (!contributed(e)) return;
+    S.user.reputacao = Math.max(30, Math.min(80, S.user.reputacao + (ok ? 5 : -10))); // RN05
+    pushNotif(ok ? { cat: 'relato', titulo: 'Seu relato foi confirmado pela Defesa Civil', texto: 'Obrigado! ' + e.titulo, eventId: e.id }
+      : { cat: 'relato', titulo: 'Seu relato foi analisado e descartado', texto: motivo || 'Não foi possível confirmar a ocorrência.', eventId: e.id });
+  },
+  discard(id) {
+    modal(`<h2 class="text-lg font-bold">Descartar evento</h2><p class="text-sm text-slate-500">Motivo obrigatório — fica no log de auditoria (RNF08).</p>
+      <select id="motivo" class="mt-3 w-full rounded-xl border border-slate-300 px-3 py-2.5"><option>Não confirmado por câmeras/sensores</option><option>Relato falso ou de teste</option><option>Fora da área de atuação</option><option>Ocorrência já normalizada</option></select>
+      <textarea id="just" rows="2" class="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Justificativa (opcional)"></textarea>
+      <div class="mt-5 flex gap-2"><button onclick="A.closeModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 font-semibold">Cancelar</button><button onclick="A.doDiscard('${id}')" class="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold">Descartar</button></div>`);
+  },
+  doDiscard(id) {
+    const e = ev(id), motivo = $('motivo').value, just = $('just').value;
+    e.status = 'Descartado'; e.motivo = motivo; tl(e, 'Descartado', motivo);
+    addAudit('Sgt. Ricardo Almeida · agt_031', 'Descartou evento', id, motivo + (just ? ' · ' + just : ''));
+    A.closeModal(); A.rewardReporters(e, false, motivo); render(); toast('Evento descartado e auditado', 'warn');
+  },
+  mergeDlg(id) {
+    const e = ev(id);
+    const cands = S.events.filter((x) => x.id !== id && x.tipo === e.tipo && ACTIVE.includes(x.status));
+    if (!cands.length) { toast('Nenhum evento do mesmo tipo para mesclar', 'warn'); return; }
+    modal(`<h2 class="text-lg font-bold flex items-center gap-2"><i data-lucide="git-merge" class="w-5 h-5"></i>Mesclar com…</h2><p class="text-sm text-slate-500">As fontes de "${esc(e.titulo)}" serão anexadas ao evento escolhido (corroboração +1).</p>
+      <select id="mergeTo" class="mt-3 w-full rounded-xl border border-slate-300 px-3 py-2.5">${cands.map((c) => `<option value="${c.id}">${c.id} · ${esc(c.titulo)} (${fmtKm((distU(c, e) * UNIT_M) / 1000)})</option>`).join('')}</select>
+      <div class="mt-5 flex gap-2"><button onclick="A.closeModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 font-semibold">Cancelar</button><button onclick="A.doMerge('${id}')" class="flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold">Mesclar</button></div>`);
+  },
+  doMerge(id) {
+    const e = ev(id), t = ev($('mergeTo').value), before = calc(t).C;
+    t.indep += 1; t.S = Math.max(t.S, e.S); t.fontes.push(...e.fontes.map((f) => ({ ...f, principal: false })));
+    tl(t, 'Atualização', `Mesclado com ${e.id} · C ${before} → ${calc(t).C}`);
+    e.status = 'Descartado'; e.motivo = 'Mesclado com ' + t.id; tl(e, 'Descartado', 'Mesclado com ' + t.id);
+    S.reports.forEach((r) => { if (r.eventId === e.id) r.eventId = t.id; });
+    addAudit('Sgt. Ricardo Almeida · agt_031', 'Mesclou eventos', `${e.id}→${t.id}`, 'Duplicidade');
+    A.closeModal(); S.cSel = t.id; render(); toast(`Mesclado em ${t.id}`, 'ok');
+  },
+  emitDlg(id) {
+    const e = ev(id), c = calc(e), reach = Math.round(e.raio * e.E * 41 + 300);
+    modal(`<h2 class="text-lg font-bold flex items-center gap-2"><i data-lucide="megaphone" class="w-5 h-5 text-red-600"></i>Emitir alerta ${PRIO[c.P].txt}</h2>
+      <div class="mt-3 rounded-xl bg-slate-100 p-3"><div class="text-[11px] text-slate-500 mb-1">Prévia da notificação</div><div class="rounded-xl bg-white p-3 shadow-sm"><b class="text-sm">${TIPOS[e.tipo].nome} · risco ${c.rl}</b><div class="text-xs text-slate-600">${esc(e.titulo)} · ${sealInfo(e).label}</div></div></div>
+      <ul class="mt-3 text-sm space-y-1 text-slate-700"><li>• Alcance estimado: <b>≈ ${reach.toLocaleString('pt-BR')} pessoas</b> com área monitorada que intersecta o evento</li><li>• Canais: push${c.P === 1 ? ' + SMS (ignora silêncio)' : ''}</li><li>• Anti-spam aplicado (RN08)</li></ul>
+      <div class="mt-5 flex gap-2"><button onclick="A.closeModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 font-semibold">Cancelar</button><button onclick="A.doEmit('${id}',${reach})" class="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold">Emitir agora</button></div>`);
+  },
+  doEmit(id, reach) {
+    const e = ev(id), c = calc(e);
+    e.status = 'Alerta emitido'; tl(e, 'Alerta emitido', `${PRIO[c.P].txt}: push para ≈ ${reach.toLocaleString('pt-BR')} pessoas`);
+    addAudit('Sgt. Ricardo Almeida · agt_031', 'Emitiu alerta ' + PRIO[c.P].txt, id, `Alcance ≈ ${reach}`);
+    A.closeModal(); render();
+    if (reachesMarina(e)) pushNotif({ cat: 'alerta', titulo: `${TIPOS[e.tipo].nome} · risco ${c.rl} a ${fmtKm(distKm(e))}`, texto: `${e.titulo} · ${sealInfo(e).label}.`, eventId: e.id });
+    else toast('Alerta emitido', 'ok');
+    setTimeout(() => { if (e.status === 'Alerta emitido') { e.status = 'Em monitoramento'; tl(e, 'Em monitoramento', 'Notificações despachadas'); render(); } }, 1800);
+  },
+  keepMap(id) { const e = ev(id); e.status = 'Em monitoramento'; e.semAlerta = true; tl(e, 'Em monitoramento', 'Agente optou por manter só no mapa'); addAudit('Sgt. Ricardo Almeida · agt_031', 'Manteve sem alerta', id, 'Decisão do agente'); render(); },
+  closeDlg(id) {
+    const e = ev(id);
+    modal(`<h2 class="text-lg font-bold">Encerrar "${esc(e.titulo)}"</h2><p class="text-sm text-slate-500">Condição de encerramento (RN09):</p>
+      <select id="motivo" class="mt-3 w-full rounded-xl border border-slate-300 px-3 py-2.5"><option>Normalizado: sensores com S ≤ 1 por 30 min</option><option>Fonte oficial informou normalização</option><option>Encerramento manual após vistoria</option></select>
+      <textarea id="just" rows="2" class="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Justificativa">Vistoria concluída pela equipe de campo.</textarea>
+      <div class="mt-5 flex gap-2"><button onclick="A.closeModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 font-semibold">Cancelar</button><button onclick="A.doClose('${id}')" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold">Encerrar evento</button></div>`);
+  },
+  doClose(id) {
+    const e = ev(id), motivo = $('motivo').value, just = $('just').value;
+    const reached = reachesMarina(e);
+    e.status = 'Encerrado'; tl(e, 'Encerrado', motivo);
+    addAudit('Sgt. Ricardo Almeida · agt_031', 'Encerrou evento', id, motivo + (just ? ' · ' + just : ''));
+    A.closeModal(); render();
+    if (reached) pushNotif({ cat: 'sistema', titulo: 'Situação normalizada', texto: e.titulo + ' foi encerrado.', eventId: e.id });
+    else toast('Evento encerrado', 'ok');
+  },
+  intSet(k, v) { S.intForm[k] = v; const p = $('intPreview'); if (p) { p.innerHTML = intPreview(); icons(); } },
+  publishInt() {
+    const f = S.intForm, b = BAIRROS[f.bairro], n = Number(f.clientes) || 0;
+    const sev = sevClientes(n, f.hosp), nomes = { energia: 'Interrupção de energia', agua: 'Falta de água', transporte: 'Interrupção no transporte' };
+    const id = 'E' + S.eventSeq++;
+    const e = { id, tipo: f.servico, titulo: `${nomes[f.servico]} — ${f.bairro}`, local: 'Área publicada pela operadora', bairro: f.bairro, x: b.x + 6, y: b.y + 6, raio: 40,
+      S: sev, sevTxt: `S${sev} · ${f.hosp ? 'afeta hospital' : n.toLocaleString('pt-BR') + ' afetados'}`, E: b.E, expTxt: `E${b.E} · ${b.nota}`,
+      F: 95, fTxt: 'Fonte oficial: centro de operações da concessionária', indep: 0, contest: 0, oficial: true, A: 100, aTxt: 'Publicado agora', Q: 100, qTxt: 'Registro oficial completo',
+      status: 'Reportado', criado: simMin(), atualizado: simMin(), validado: false, retorno: f.retorno, clientes: n, operador: true,
+      resumo: `${nomes[f.servico]} desde ${f.inicio}. ${n.toLocaleString('pt-BR')} afetados. Previsão de retorno: ${f.retorno}.`,
+      fontes: [{ t: 'oficial', nome: 'Concessionária — COI', det: `Publicado por Juliana Torres (operadora) · retorno ${f.retorno}`, hora: simMin(), principal: true }], timeline: [] };
+    tl(e, 'Reportado', 'Interrupção publicada pela operadora');
+    const c = calc(e);
+    tl(e, 'Em validação', `R = ${e.S} × ${e.E} = ${c.R} (${c.rl}) · C = ${c.C}`);
+    tl(e, 'Confirmado', 'Fonte oficial (K = 100)');
+    S.events.push(e);
+    addAudit('Juliana Torres · opr_112', 'Publicou interrupção de serviço', id, `${n} afetados · retorno ${f.retorno}`);
+    if (c.P <= 3) {
+      e.status = 'Alerta emitido'; tl(e, 'Alerta emitido', `${PRIO[c.P].txt}: push automático (fonte oficial)`);
+      render();
+      if (reachesMarina(e)) pushNotif({ cat: 'alerta', titulo: `${nomes[f.servico]} na sua área`, texto: `${f.bairro} · retorno previsto ${f.retorno} · Confiança Alta.`, eventId: id });
+      else toast(`Publicado e alertado (${PRIO[c.P].txt})`, 'ok');
+      setTimeout(() => { if (e.status === 'Alerta emitido') { e.status = 'Em monitoramento'; tl(e, 'Em monitoramento', 'Notificações despachadas'); render(); } }, 1800);
+    } else { e.status = 'Em monitoramento'; e.semAlerta = true; tl(e, 'Em monitoramento', `${PRIO[c.P].txt}: apenas mapa`); render(); toast(`Publicado (${PRIO[c.P].txt}: sem push)`, 'ok'); }
+  },
+  /* Barra de demonstração */
+  demoPush() {
+    const e = ev('E1'); if (!e || !ACTIVE.includes(e.status)) { toast('Evento E1 não está ativo'); return; }
+    e.atualizado = simMin(); tl(e, 'Atualização', 'Chuva se mantém em 55 mm/h; córrego a 92% da cota');
+    pushNotif({ cat: 'alerta', titulo: 'Alagamento CRÍTICO a 340 m', texto: 'Av. Marechal Tito · Confiança Alta (' + calc(e).C + ') · evite a região.', eventId: 'E1' });
+  },
+  demoNewReport() {
+    const id = 'E' + S.eventSeq++;
+    const e = { id, tipo: 'alagamento', titulo: 'Alagamento — Av. Pires do Rio', local: 'Av. Pires do Rio, 1.800', bairro: 'São Miguel Paulista', x: 245, y: 300, raio: 22,
+      S: 3, sevTxt: 'S3 · intensidade "moderada" informada', E: 2, expTxt: 'E2 · densidade média', F: 45, fTxt: 'Relato comunitário: reputação do autor = 45', indep: 0, contest: 0, A: 100, aTxt: 'Relato de agora', Q: 40, qTxt: 'Somente GPS e foto parcial',
+      status: 'Em validação', criado: simMin(), atualizado: simMin(), validado: false, filaDesde: simSec(), fotos: 1,
+      resumo: '"Bueiro transbordando, água subindo na pista da direita."', fontes: [{ t: 'comunidade', nome: 'Relato de morador', det: 'Autor anônimo · GPS ± 40 m', hora: simMin(), principal: true }], timeline: [] };
+    tl(e, 'Reportado', 'Relato comunitário recebido'); const c = calc(e); tl(e, 'Em validação', `R = ${c.R} (${c.rl}) · C = ${c.C} (${c.cl}) → ${PRIO[c.P].txt}`);
+    S.events.push(e); addAudit('Sistema · LGPD', 'Pseudonimizou relato', id, 'Autor → psd_91be44');
+    render(); toast(`Novo relato na fila: ${id} (${PRIO[c.P].txt}, C = ${c.C})`, 'ok');
+  },
+  reset() { T0 = Date.now(); S = seed(); seedAudit(); $('pushLayer').innerHTML = ''; A.closeModal(); render(); toast('Dados reiniciados'); },
+  toggleDemo() { S.demoHidden = !S.demoHidden; document.body.classList.toggle('demo-hidden', S.demoHidden); $('demoBar').classList.toggle('hidden', S.demoHidden); $('demoShow').classList.toggle('hidden', !S.demoHidden); document.querySelector('main').classList.toggle('pt-16', !S.demoHidden); document.querySelector('main').classList.toggle('pt-4', S.demoHidden); },
+};
+window.A = A;
+
+/* ---------- Relógio, carimbo de atualização e prazos (1 s) ---------- */
+function tick() {
+  const now = Date.now();
+  let secs = Math.floor((now - S.lastSync) / 1000);
+  if (secs >= 45) { S.lastSync = now; secs = 0; }
+  const label = secs < 3 ? 'atualizado agora' : `há ${secs} s`;
+  const s1 = $('syncStamp'); if (s1) s1.textContent = label;
+  const s2 = $('syncStamp2'); if (s2) s2.textContent = label;
+  $('simClock').textContent = hhmm(simMin());
+  const cc = $('consoleClock'); if (cc) cc.textContent = hhmm(simMin());
+  document.querySelectorAll('[data-deadline]').forEach((el) => {
+    const left = Number(el.dataset.deadline) - simSec();
+    if (left <= 0) { el.textContent = 'Escalado'; el.className = 'font-bold text-xs text-white bg-red-600 rounded px-1.5 py-0.5'; el.title = 'Prazo estourado: escalado ao coordenador (RN09)'; }
+    else { el.textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`; el.classList.toggle('text-red-600', left < 120); }
+  });
+}
+setInterval(tick, 1000);
+
+/* ---------- Atalhos de teclado ---------- */
+document.addEventListener('keydown', (e) => {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
+  const map = { '1': 'T01', '2': 'T02', '3': 'T03', '4': 'T04', '5': 'T05', '6': 'T06', '7': 'T07', '8': 'T08', '9': 'T09', '0': 'T10' };
+  if (map[e.key]) go(map[e.key]);
+  else if (e.key === 'd' || e.key === 'D') A.toggleDemo();
+  else if (e.key === 'Escape') A.closeModal();
+});
+
+render();
+</script>
+</body>
+</html>
