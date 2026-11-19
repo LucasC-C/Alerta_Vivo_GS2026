@@ -655,7 +655,6 @@ Morador: T06 "Seu relato foi confirmado" ─► T08 "Confirmado" ─► T04 Deta
 Agente:  T09 Encerrar ─► Morador: T06 "Situação normalizada"
 ```
 
-> Dica para o Figma: crie o **selo de confiança** e o **cartão de alerta** como *Components* com variantes (Alta/Média/Baixa; Baixo/Moderado/Alto/Crítico). Isso garante a consistência visual cobrada no critério de 4,0 pontos e acelera muito o desenho das 10 telas.
 
 ---
 
@@ -714,5 +713,5 @@ Todas as telas têm pelo menos um RF e todo RF de interface tem tela: atende ao 
 - [x] Diagrama de Estados
 - [x] Arquitetura em camadas
 - [x] Protótipo funcional com as 10 telas (`index.html`) + README
-- [ ] Links públicos testados em janela anônima (protótipo, repositório e vídeo)
+- [x] Links públicos testados em janela anônima (protótipo, repositório e vídeo)
 - [x] Vídeo ≤ 3 min (2:49): https://youtu.be/1jQ838kpWUM

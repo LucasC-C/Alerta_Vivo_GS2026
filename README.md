@@ -13,7 +13,7 @@
 🎬 **Vídeo de demonstração (2:49):** https://youtu.be/1jQ838kpWUM
 
 [![Assista ao vídeo de demonstração](https://img.youtube.com/vi/1jQ838kpWUM/maxresdefault.jpg)](https://youtu.be/1jQ838kpWUM)
-📄 **Documentação (requisitos, UML e arquitetura):** [`docs/Urban_Risk_Intelligence_Platform_Documentacao.md`](docs/Urban_Risk_Intelligence_Platform_Documentacao.md)
+📄 **Documentação (requisitos, UML e arquitetura):** [PDF](docs/Alerta_Vivo_GS2026_Documentacao.pdf) · [Markdown](docs/Urban_Risk_Intelligence_Platform_Documentacao.md)
 
 ---
 
@@ -172,6 +172,7 @@ Arraste a pasta do projeto em [app.netlify.com/drop](https://app.netlify.com/dro
 ├── index.html                                   # SPA completa: HTML + Tailwind (CDN) + JavaScript Vanilla
 ├── README.md
 └── docs/
+    ├── Alerta_Vivo_GS2026_Documentacao.pdf               # documentação final (entrega)
     ├── Urban_Risk_Intelligence_Platform_Documentacao.md   # requisitos, UML, arquitetura, telas, roteiro
     ├── Cola_para_o_Grupo_Confianca.md                     # contas de confiança explicadas
     ├── Diagrama_Sequencia_Alerta.png
