@@ -8,7 +8,7 @@
 >
 > **Protótipo funcional:** https://lucasc-c.github.io/Alerta_Vivo_GS2026/
 > **Repositório:** https://github.com/LucasC-C/Alerta_Vivo_GS2026
-> **Vídeo (YouTube não listado):** `link`
+> **Vídeo de demonstração (YouTube, não listado):** https://youtu.be/1jQ838kpWUM
 
 ---
 
@@ -706,7 +706,7 @@ Todas as telas têm pelo menos um RF e todo RF de interface tem tela: atende ao 
 ---
 
 ## Checklist de entrega (do enunciado)
-- [x] Nomes completos e RMs na primeira página + links (falta só o link do vídeo)
+- [x] Nomes completos e RMs na primeira página + links
 - [x] Problema, público-alvo e personas
 - [x] 17 RF e 11 RNF (ISO 25010) com LGPD
 - [x] Regras de priorização, risco e confiança (RN01–RN09)
@@ -714,5 +714,5 @@ Todas as telas têm pelo menos um RF e todo RF de interface tem tela: atende ao 
 - [x] Diagrama de Estados
 - [x] Arquitetura em camadas
 - [x] Protótipo funcional com as 10 telas (`index.html`) + README
-- [ ] Links públicos testados em janela anônima
-- [ ] Vídeo ≤ 3 min
+- [ ] Links públicos testados em janela anônima (protótipo, repositório e vídeo)
+- [x] Vídeo ≤ 3 min (2:49): https://youtu.be/1jQ838kpWUM

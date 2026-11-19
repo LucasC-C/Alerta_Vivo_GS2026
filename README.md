@@ -10,7 +10,9 @@
 ![Status](https://img.shields.io/badge/status-protótipo-blue)
 
 🔗 **Demo online:** https://lucasc-c.github.io/Alerta_Vivo_GS2026/
-🎬 **Vídeo de demonstração (até 3 min):** `<link do YouTube não listado>`
+🎬 **Vídeo de demonstração (2:49):** https://youtu.be/1jQ838kpWUM
+
+[![Assista ao vídeo de demonstração](https://img.youtube.com/vi/1jQ838kpWUM/maxresdefault.jpg)](https://youtu.be/1jQ838kpWUM)
 📄 **Documentação (requisitos, UML e arquitetura):** [`docs/Urban_Risk_Intelligence_Platform_Documentacao.md`](docs/Urban_Risk_Intelligence_Platform_Documentacao.md)
 
 ---
